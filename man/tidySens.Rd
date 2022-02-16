@@ -11,7 +11,7 @@ tidySens(data, Column, idLabel = "Site")
 
 \item{Column}{The column name, character or integer, of the data values to be tested.}
 
-\item{idLabel}{A character string to label the id column (eg. "Station", "Site", "Creek"). Defaults to "Site".}
+\item{idLabel}{A character string to label the id column (eg. "Station", "Site", "Creek").}
 }
 \value{
 A data.frame of test results: number of points and high and low confidence intervals. One row per dataframe in the provided list.

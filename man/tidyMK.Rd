@@ -4,14 +4,14 @@
 \alias{tidyMK}
 \title{Tidy Mann Kendal Result Table}
 \usage{
-tidyMK(ygDataList, valueColumn, idLabel)
+tidyMK(ygDataList, valueColumn, idLabel = "Site")
 }
 \arguments{
-\item{ygDataList}{A list of data.frame or tibble data objects providing station data}
+\item{ygDataList}{A list of data.frame or tibble data objects providing station data.}
 
-\item{valueColumn}{The column name, character or integer, of the data values to be tested}
+\item{valueColumn}{The column name, character or integer, of the data values to be tested.}
 
-\item{idLabel}{A character string to label the id column}
+\item{idLabel}{A character string to label the id column.}
 }
 \value{
 A data.frame of test results: Mann-Kendall tau and 2-sided p-value. One row per dataframe in the provided list.

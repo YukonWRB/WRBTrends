@@ -15,11 +15,11 @@ getGroupValue(
 \arguments{
 \item{df}{A data.frame or tibble data object including a date and value column}
 
-\item{groupColumn}{The column name, character or integer, of the group column. Can be a blocking variable representing sites, dates, or other groups. If using complete dates (year, month, day present) ensure as.date format. Incomplete dates (i.e. only years) should remain as integers.}
+\item{groupColumn}{The column name, character or integer, of the group column. Can be a blocking variable representing sites, dates, or other groups. If using complete dates (year, month, day present) ensure as.date format yyyy-mm-dd. Incomplete dates (i.e. only years) should remain as integers.}
 
-\item{valueColumn}{The column name, character or integer, of the data values to be tested}
+\item{valueColumn}{The column name, character or integer, of the data values to be tested.}
 
-\item{value}{The value to be returned, either "min", "max", "mean", or "median.  The default is "max".}
+\item{value}{The value to be returned, either "min", "max", "mean", or "median.}
 
 \item{dateGroup}{If using a date formatted groupColumn, specify whether grouping by "year", "month", or "day".}
 }
@@ -27,7 +27,7 @@ getGroupValue(
 A data.frame of test results: number of points and high and low confidence intervals. One row per dataframe in the provided list.
 }
 \description{
-This function uses the \code{group_by()} functions from the dplyr package and applies the with_ties = FALSE option to retain only one record per group.  The group column can be a date object, an integer, or character variable to group by. A date object must be in the lubridate yyyy-mm-dd date format. The values column must contain numeric values.
+This function uses the \code{group_by()} functions from the dplyr package and applies the with_ties = FALSE option to retain only one record per group.  The group column can be a date object, an integer, or character variable to group by.
 }
 \details{
 Identify and retain only max or min value from grouped data

@@ -26,11 +26,11 @@ movingKendallSlope(
 
 \item{end}{The last data point (year, month, day, etc) considered in the rolling trend calculations.}
 
-\item{valuesUnits}{A character vector describing the data you are analyzing. Defaults to "mm".}
+\item{valuesUnits}{A character vector describing the data you are analyzing.}
 
 \item{timeUnits}{A character vector describing the time units ("days", "years", "months").}
 
-\item{period}{The length of the moving window. Defaults to 10.}
+\item{period}{The length of the moving window.}
 }
 \value{
 A data.frame with three columns: one column of p-values, one column of regional Kendall slopes (for lists) or Sen's slopes (data.frame), and one column showing the last data point (year, month, day, etc) used in the calculations.

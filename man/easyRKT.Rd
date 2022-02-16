@@ -30,5 +30,5 @@ easyRKT(
 An object of type "rkt" with the Kendall Tau, S, and variance of S, a 2-sided p-value, and a seasonal/regional Kendall slope.
 }
 \description{
-#Takes a list of data.frames and pre-processes them for use with the rkt package to return a regional/seasonal Kendall p-value and estimated slope. Adds rows to data.frames in the list to make each the same length and creates a blocking variable for each data.frame. Can factor covariables and correlation between blocks as well as deal with multiple data points in the same time period, but the underlying function rkt::rkt does not currently handle covariables.
+Takes a list of data.frames and pre-processes them for use with the rkt package to return a regional/seasonal Kendall p-value and estimated slope. Adds rows to data.frames in the list to make each the same length and creates a blocking variable for each data.frame. Can factor covariables and correlation between blocks as well as deal with multiple data points in the same time period, but the underlying function rkt::rkt does not currently handle covariables.
 }
