@@ -1,7 +1,7 @@
 #'data.
 #'
 #'@name data
-#'docType package
+#'@docType package
 NULL
 
 #'Peak SWE data from 1958 to 2021
