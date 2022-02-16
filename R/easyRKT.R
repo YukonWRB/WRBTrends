@@ -27,7 +27,7 @@ easyRKT <- function(data, valuesColumn, timeColumn, covariable="none", correlate
   data.all <- lapply(data, function(x) dplyr::full_join(x, range))
   data.all <- lapply(data.all, function(x) dplyr::arrange(x, get(timeColumn)))
   data.all <- as.data.frame(do.call(rbind.data.frame, data.all))
-  data.all <- bind_cols(data.all, siteCode) #Add in a site code to act as blocks for each region
+  data.all <- dplyr::bind_cols(data.all, siteCode) #Add in a site code to act as blocks for each region
 
   #Finally... run the Regional Kendall test!
   if (covariable == "none") {
