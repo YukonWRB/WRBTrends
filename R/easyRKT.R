@@ -31,7 +31,7 @@ easyRKT <- function(data, valuesColumn, timeColumn, covariable="none", correlate
 
   #Finally... run the Regional Kendall test!
   if (covariable == "none") {
-    RegionalKendallResult <- rkt(data.all[[timeColumn]], data.all[[valuesColumn]], block=data.all$siteCode, correct=correlate.correct, rep=rep)
+    RegionalKendallResult <- rkt::rkt(data.all[[timeColumn]], data.all[[valuesColumn]], block=data.all$siteCode, correct=correlate.correct, rep=rep)
   return(RegionalKendallResult)
   }
 
