@@ -24,7 +24,7 @@ getGroupValue <- function(df, groupColumn, valueColumn, value = "max", dateGroup
   #Group by specified date component
   if (dateGroup == "noDate"){
     out <- df %>%
-      group_by(get(groupColumn))
+      dplyr::group_by(get(groupColumn))
   }
   if (dateGroup == "year"){
     out <- df %>%
