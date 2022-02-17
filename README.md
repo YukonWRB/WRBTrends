@@ -1,2 +1,2 @@
 # WRBTrends
-Yukon Water Resource Branch package of helpful trend-related functions.
+The Yukon Water Resources Branch's package of helpful trend-related functions.
