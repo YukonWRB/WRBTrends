@@ -44,7 +44,7 @@ tidySens <- function(data, Column, idLabel="Site") {
 	 slope <- as.data.frame(data %>%
 												 	purrr::map_df(.,~{
 												 		test = trend::sens.slope(.x %>% dplyr::pull(get(Column)))
-												 		test = tibble(`Slope estimate` = test["estimates"] %>%
+												 		test = tibble::tibble(`Slope estimate` = test["estimates"] %>%
 												 										unlist)
 												 	}))
 	 # Assign station names in same order
@@ -90,7 +90,7 @@ tidySens <- function(data, Column, idLabel="Site") {
 
 
     # Then append the slope estimates
-    slope <- tibble(`Slope estimate` = sens["estimates"] %>%
+    slope <- tibble::tibble(`Slope estimate` = sens["estimates"] %>%
                                                unlist)
 
     # Assign station names in same order

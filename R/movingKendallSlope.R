@@ -31,7 +31,7 @@ movingKendallSlope <- function(data, valuesColumn, timeColumn, start, end, value
    data.all <- lapply(data, function(x) dplyr::full_join(x, range))
    data.all <- lapply(data.all, function(x) dplyr::arrange(x, get(timeColumn)))
    data.all <- as.data.frame(do.call(rbind.data.frame, data.all))
-   data.all <- bind_cols(data.all, siteCode) #Add in a site code to act as blocks for each region
+   data.all <- dplyr::bind_cols(data.all, siteCode) #Add in a site code to act as blocks for each region
 
 
    #Run the regional Kendall: subset the data.frame into 10-year periods and run each period. Combine it all in one data.frame.
@@ -54,8 +54,7 @@ movingKendallSlope <- function(data, valuesColumn, timeColumn, start, end, value
   }
 
   if (class(data)=="data.frame"){
-
-    #Run the MK and the Sen's Slope: subset the data.frame into 10-year periods and run each period. Combine it all in one data.frame.
+#Run the MK and the Sen's Slope: subset the data.frame into 10-year periods and run each period. Combine it all in one data.fram.
     listNames <- (start+(period-1)):end
     rollingKendall <- list()
     for (i in listNames){
