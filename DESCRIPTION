@@ -1,5 +1,5 @@
 Package: WRBTrends
-Title: WRB trends helper
+Title: WRB's trend functions
 Version: 1.0.1
 Authors@R: 
     person("Ghislain", "de Laplante", , "ghislaindel@gmail.com", role = c("aut", "cre"),
