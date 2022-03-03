@@ -3,7 +3,7 @@
 #' Identify and retain only max or min value from grouped data
 #'
 #' @description
-#' This function uses the `group_by()` functions from the dplyr package and applies the with_ties = FALSE option to retain only one record per group.  The group column can be a date object, an integer, or character variable to group by.
+#' This function uses the group_by() functions from the dplyr package and applies the with_ties = FALSE option to retain only one record per group.  The group column can be a date object, an integer, or character variable to group by.
 #'
 #' @param df A data.frame or tibble data object including a date and value column
 #' @param groupColumn The column name, character or integer, of the group column. Can be a blocking variable representing sites, dates, or other groups. If using complete dates (year, month, day present) ensure as.date format yyyy-mm-dd. Incomplete dates (i.e. only years) should remain as integers.
