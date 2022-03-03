@@ -27,7 +27,7 @@ getGroupValue(
 A data.frame of test results: number of points and high and low confidence intervals. One row per dataframe in the provided list.
 }
 \description{
-This function uses the \code{group_by()} functions from the dplyr package and applies the with_ties = FALSE option to retain only one record per group.  The group column can be a date object, an integer, or character variable to group by.
+This function uses the group_by() functions from the dplyr package and applies the with_ties = FALSE option to retain only one record per group.  The group column can be a date object, an integer, or character variable to group by.
 }
 \details{
 Identify and retain only max or min value from grouped data
