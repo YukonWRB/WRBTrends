@@ -52,10 +52,12 @@ getGroupValue <- function(df, groupColumn, valueColumn, value = "max", dateGroup
 			dplyr::slice_min(get(valueColumn), n=1, with_ties = FALSE)
 	}
   if (value == "mean"){
-    out <- mean(out[[valueColumn]])
+    out <- out%>%
+      dplyr::summarise_at(vars(valueColumn), list(name=mean))
   }
   if (value == "median"){
-    out <- stats::median(out[[valueColumn]])
+    out <- out%>%
+      dplyr::summarise_at(vars(valueColumn), list(name=stats::median))
   }
   dplyr::ungroup(out)
 	return(out)
