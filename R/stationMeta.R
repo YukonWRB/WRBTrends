@@ -22,7 +22,7 @@ library(magrittr)
 #' @examples
 #' 
 
-stationMeta <- function(path, colList = c("Site name", "Site identifier", "TS name", "Data location", "Latitude", "Longitude", "GRADE length", "GRADE gaps", "GRADE disturbance", "GRADE data quality", "GRADE final score"), gradeColumn="GRADE final score", gradeRange=NULL, product="data.table", ignore.tabs=c("README", "Filter and Grade all sites")){
+stationMeta <- function(path, colList = c("Site name", "Location identifier", "TS name", "Start year", "End year","Data location", "Latitude", "Longitude", "GRADE length", "GRADE gaps", "GRADE disturbance", "GRADE data quality", "GRADE final score"), gradeColumn="GRADE final score", gradeRange=NULL, product="data.table", ignore.tabs=c("README", "Filter and Grade all sites")){
   
   #bring the sheets into R
   sheets <- readxl::excel_sheets(path) #get the names of each sheet in the workbook
@@ -32,7 +32,7 @@ stationMeta <- function(path, colList = c("Site name", "Site identifier", "TS na
   }
 
   #extract location IDs, names, and grades or other specified columns from the tabs not excluded
-  TS <- TS[names(TS) !=ignore.tabs]
+  TS <- TS[!names(TS) %in% ignore.tabs]
   TS <- lapply(TS, function(x) x %>% dplyr::select(all_of(colList)))
   
   #filter by minGrade
