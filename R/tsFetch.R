@@ -1,21 +1,19 @@
-#This script takes the data.table output  from the stationMeta script (truncated if you desire fewer stations) and fetches time-series information for the stations contained in the "Site name", "Site identifier", and "Data location" columns.
-#
-#If you are fetching information from the EQWin or Snow Survey Access databases you MUST have access to the X drive on your machine. Aquarius logon can be from anywhere.
-
-#' Title
+#' Utility for automatically fetching time-series data
+#' 
+#' This script takes the data.table output  from the stationMeta function (truncated if you desire fewer stations) and fetches time-series information for the stations contained in the "Site name", "Location identifier" columns.
+#' If you are fetching information from the EQWin or Snow Survey Access databases you MUST have access to the X drive on your machine. Aquarius data can be fetched from anywhere with an internet connection.
+#' 
+#' BE AWARE that this function may take a long time to execute, perform work on a multi-core machine with lots of memory and a good internet connection!
 #'
 #' @param TSlist The data.table output of WRBTrends::stationMeta, containing at minimum the default columns specified by that function.
 #' @param sources The list of sources you wish to download data for. "all" means all the sources listed in the "Data location" column of the input data.table. Can also specify from "Aquarius", "EQWin", "Snow Survey", "ECCC", or "Workbook" if you want to exclude any sources. If specifying "Workbook" all time-series must be in individual workbook tabs with columns "datetime" and "value".
 #' @param AQlogin The login parameters for Aquarius in format c("username", "password"). Leave NULL if you are not fetching from Aquarius, in which case you should either ensure it is not specified in the input data.table or is excluded under the source parameter.
 #' @param HYlogin The login parameters for HYDAT in format c("username", "password"). Leave NULL if you are not fetching from Aquarius, in which case you should either ensure it is not specified in the input data.table or is excluded under the source parameter.
-#'
 #' @return A list containing one element (tibble) per time-series, with processing performed to standardize the time-series to one common format. Designed to act as input to the WRBTrends:: ???? and ???? functions.
 #' 
+#' @import data.table
 #' @export
-#'
 #' @examples
-#' 
-
 
 tsFetch <- function(TSlist, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin=NULL){
   
@@ -29,108 +27,219 @@ tsFetch <- function(TSlist, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYl
   
   
   #Dowload the data from each source
+  #####Aquarius fetch#####
   if("Aquarius" %in% sources == TRUE){
     Aquarius <- list()
     for (i in unique(TSlist$Aquarius$`Location identifier`)){
       fetch <- subset(TSlist$Aquarius, `Location identifier` %in% i)
       for (j in unique(fetch$`TS name`)){
-        line <- subset(fetch, `TS name`%in% j) %>% dplyr::mutate_all(as.character) #made as.character to work with timeseries_client.R
-        #Make the Aquarius configuration
-        config = list(
-          # Aquarius server credentials
-          server="https://yukon.aquaticinformatics.net/AQUARIUS", username=AQlogin[1], password=AQlogin[2],
-          # time series name@location EX: Wlevel_btoc.Calculated@YOWN-XXXX
-          timeSeriesName=paste0(line$`TS name`,".Logger@",line$`Location identifier`),
-          # Analysis time period
-          eventPeriodStartDay =
-            if(is.na(line$`Start year`)==TRUE){
-            "1950-01-01"
-            } else{
-              paste0(line$`Start year`,"-01-01")
-            },
-          eventPeriodEndDay = 
-            if(is.na(line$`End year`)==TRUE){
-            as.character(Sys.Date())
-            } else {
-              paste0(line$`End year`,"-12-31")
-            },
-          # Report title
-          uploadedReportTitle = "Test Plot",
-          # Remove pre-existing reports with the same name from Aquarius
-          removeDuplicateReports = TRUE)
-        
-        # Load supporting code
-        source("R/timeseries_client.R")
-        # Connect to Aquarius server
-        timeseries$connect(config$server, config$username, config$password)
-        # Get the location metadata
-        locationData = timeseries$getLocationData(timeseries$getLocationIdentifier(config$timeSeriesName))
-        utcOffset = timeseries$getUtcOffsetText(locationData$UtcOffset)
-        startOfDay = "T00:00:00"
-        endOfDay = "T23:59:59.9999999"
-        # Prepare for downloading data points based on specified period start and end or for all data points
-        fromPeriodStart = paste0(config$eventPeriodStartDay, startOfDay, utcOffset)
-        toPeriodEnd = paste0(config$eventPeriodEndDay, endOfDay, utcOffset)
-        periodLabel = sprintf("%s - %s", config$eventPeriodStartDay, config$eventPeriodEndDay)
-        # Read corrected time-series data from Aquarius
-        RawDL <- timeseries$getTimeSeriesCorrectedData(c(config$timeSeriesName),
-                                                       queryFrom = fromPeriodStart,
-                                                       queryTo = toPeriodEnd)
-        #Fix the start time and end time to match either that specified or that in the time-series, whichever is shorter; if nothing is specified then the entire Aquarius TS is fetched.
-        trueStart <- RawDL$Points$Timestamp[1]
-        trueStart <- substr(trueStart, 1, 10)
-        trueEnd <- RawDL$Points$Timestamp[nrow(RawDL$Points)]
-        trueEnd <- substr(trueEnd, 1, 10)
-        
-        if (is.na(line$`Start year`)==TRUE){ #if not specified, default to full range
-          line$`Start year` <- trueStart
-        }
-        if (is.na(line$`End year`)==TRUE){ #if not specified, default to full range
-          line$`End year` <- trueEnd
-        }
-        if (is.na(line$`Start year`)==FALSE){
-          if (line$`Start year` < trueStart){
-            line$`Start year` <- trueStart
+        tryCatch( {
+          line <- subset(fetch, `TS name`%in% j) %>% dplyr::mutate_all(as.character) #made as.character to work with timeseries_client.R
+          #Make the Aquarius configuration
+          config = list(
+            # Aquarius server credentials
+            server="https://yukon.aquaticinformatics.net/AQUARIUS", username=AQlogin[1], password=AQlogin[2],
+            # time series name@location EX: Wlevel_btoc.Calculated@YOWN-XXXX
+            timeSeriesName=paste0(line$`TS name`,".Logger@",line$`Location identifier`),
+            # Analysis time period
+            eventPeriodStartDay =
+              if(is.na(line$`Start year`)==TRUE){
+                "1950-01-01"} else {
+                paste0(line$`Start year`,"-01-01")},
+            eventPeriodEndDay = 
+              if(is.na(line$`End year`)==TRUE){
+                as.character(Sys.Date())} else {
+                paste0(line$`End year`,"-12-31")}
+          )
+          
+          # Load supporting code
+          source("R/timeseries_client.R")
+          # Connect to Aquarius server
+          timeseries$connect(config$server, config$username, config$password)
+          # Get the location metadata
+          locationData = timeseries$getLocationData(timeseries$getLocationIdentifier(config$timeSeriesName))
+          utcOffset = timeseries$getUtcOffsetText(locationData$UtcOffset)
+          startOfDay = "T00:00:00"
+          endOfDay = "T23:59:59.9999999"
+          # Prepare for downloading data points based on specified period start and end or for all data points
+          fromPeriodStart = paste0(config$eventPeriodStartDay, startOfDay, utcOffset)
+          toPeriodEnd = paste0(config$eventPeriodEndDay, endOfDay, utcOffset)
+          periodLabel = sprintf("%s - %s", config$eventPeriodStartDay, config$eventPeriodEndDay)
+          # Read corrected time-series data from Aquarius
+          RawDL <- timeseries$getTimeSeriesCorrectedData(c(config$timeSeriesName), queryFrom = fromPeriodStart, queryTo = toPeriodEnd)
+          # format base Aquarius time series and combine with values
+          timestamp <- data.table::as.data.table(strptime(substr(RawDL$Points$Timestamp,0,19), "%FT%T"))
+          value <- data.table::as.data.table(RawDL$Points$Value)
+          rawdata <- cbind(timestamp, value)
+          data.table::setnames(rawdata, old = c("x", "Numeric"), new = c("timestamp", "value"))
+          #Fix the start time and end time to match either that specified or that in the time-series, whichever is shorter; if nothing is specified then the entire Aquarius TS is fetched.
+          trueStart <- RawDL$Points$Timestamp[1]
+          trueStart <- substr(trueStart, 1, 10)
+          trueEnd <- RawDL$Points$Timestamp[nrow(RawDL$Points)]
+          trueEnd <- substr(trueEnd, 1, 10)
+          
+          if (is.na(line$`Start year`)==TRUE){ #if not specified, default to full range
+            line$`Start year` <- trueStart}
+          if (is.na(line$`End year`)==TRUE){ #if not specified, default to full range
+            line$`End year` <- trueEnd}
+          if (is.na(line$`Start year`)==FALSE){
+            if (line$`Start year` < trueStart){
+              line$`Start year` <- trueStart} #if the specified start is before the real start
+            if (line$`Start year` > trueStart){
+              line$`Start year` <- paste0(line$`Start year`, "-01-01")} #if the specified start is valid.
           }
-          if (line$`Start year` > trueStart){
-            #add in month and day 01-01
+          if (is.na(line$`End year`)==FALSE){
+            if (line$`End year` > trueEnd){
+              line$`End year` <- trueEnd} #if the specified end is after the real end
+            if(line$`End year` < trueEnd){
+              line$`End year` <- paste0(line$`End year`, "-12-31")} #if the specified end is valid.
           }
+          
+          #truncate according to set dates, if needed
+          rawdata <- rawdata[ rawdata$timestamp >= line$`Start year`& rawdata$timestamp <= line$`End year`]
+          # Remove NA values and order, and make a list element
+          Aquarius[[paste0(i,"_",j)]] <- na.omit(rawdata, cols=c("value","timestamp")) %>% setorder(cols="timestamp")
+          
+         },  error = function(e) {paste0("The time-series ", j, "for location ", i, "could not be found or could not be processed. Check the exact naming of the location and time-series.")})
         }
-        if (is.na(line$`End year`)==FALSE){
-          if (line$`End year` > trueEnd){
-            line$`End year` <- trueEnd
+    }
+  }
+  
+  #####EQWin fetch#####
+  if("EQWin" %in% sources == TRUE){
+    #Download the data and select necessary columns
+    db <- "X:/Snow/DB/SnowDB.mdb" # Name the database
+    con <- RODBC::odbcConnectAccess(db) # Open a connection to the data
+    Meas <- RODBC::sqlFetch(con,'SNOW_SAMPLE') # Read the data in
+    RODBC::odbcCloseAll() # Close all connections to the database
+    Meas <- subset(Meas, select=c("SNOW_COURSE_ID","SNOW_WATER_EQUIV","SAMPLE_DATE","EXCLUDE_FLG"))
+    #Manipulate things a bit
+    Meas$month <- lubridate::month(Meas$SAMPLE_DATE)
+    Meas$year <- lubridate::year(Meas$SAMPLE_DATE)
+    Meas$day <- lubridate::day(Meas$SAMPLE_DATE)
+    Meas <- Meas[which(Meas$EXCLUDE_FLG==0),] # OMIT VALUES OF EXCLUDEFLG=1, aka TRUE
+    Meas$SAMPLE_DATE = as.character(Meas$SAMPLE_DATE) # Change date to character format
+    Meas$SNOW_COURSE_ID <- as.character(Meas$SNOW_COURSE_ID) # Change snow course ID to character format
+    
+    # Special case (i) Twin Creeks - 09BA-SC02B
+    #Step 1: Remove 09BA-SC02A values in 2016 (the year of overlap):
+    Meas<-Meas[!(Meas$SNOW_COURSE_ID=="09BA-SC02A" & Meas$yr==2016),]
+    Meas<-Meas[!(Meas$SNOW_COURSE_ID=="09BA-SC02A" & Meas$yr==2021),]
+    Meas<-Meas[!(Meas$SNOW_COURSE_ID=="09BA-SC02A" & Meas$yr==2022),]
+    # Step 2: Multiply all 09BA-SC02A values by 0.79 to estimate the historic 09BA-SC02B values:
+    Meas$SNOW_WATER_EQUIV[Meas$SNOW_COURSE_ID=="09BA-SC02A"] <- 0.79*(Meas$SNOW_WATER_EQUIV[Meas$SNOW_COURSE_ID=="09BA-SC02A"]) 
+    # Step 3: Rename these locations as 09BA-SC02B:
+    Meas$SNOW_COURSE_ID[Meas$SNOW_COURSE_ID=="09BA-SC02A"] <- "09BA-SC02B" 
+    
+    # Special case (ii) Hyland 10AD-SC01 [(not A, just blank) vs 10AD-SC01B]
+    # Step 1: Identify the data we're targeting :
+    Target <- Meas[which(Meas$SNOW_COURSE_ID=="10AD-SC01" & Meas$yr<2018),] 
+    # Step 2: Rename the snow course ID to the B series
+    Target$SNOW_COURSE_ID <- "10AD-SC01B" 
+    # Step 3: Multiply SNOW_WATER_EQUIVALENT by the appropriate ratio 
+    Target$SNOW_WATER_EQUIV <- 1.17*(Target$SNOW_WATER_EQUIV) 
+    # Step 4: Add this data back on to Histvals, to use for calculating values at 10AD-SC01B:
+    Meas <- rbind(Meas,Target)
+    
+    EQwin <- list()
+    for (i in unique(TSlist$EQwin$`Location identifier`)){
+      fetch <- subset(TSlist$EQWin, `Location identifier` %in% i)
+      for (j in unique(fetch$`TS name`)){
+        tryCatch( {
+          line <- subset(fetch, `TS name`%in% j) %>% dplyr::mutate_all(as.character)
+
+          #Find the real start/end of the TS
+          trueStart <- RawDL$Points$Timestamp[1]
+          trueStart <- substr(trueStart, 1, 10)
+          trueEnd <- RawDL$Points$Timestamp[nrow(RawDL$Points)]
+          trueEnd <- substr(trueEnd, 1, 10)
+          
+          #Fix the Start year/end year
+          if (is.na(line$`Start year`)==TRUE){ #if not specified, default to full range
+            line$`Start year` <- trueStart}
+          if (is.na(line$`End year`)==TRUE){ #if not specified, default to full range
+            line$`End year` <- trueEnd}
+          if (is.na(line$`Start year`)==FALSE){
+            if (line$`Start year` < trueStart){
+              line$`Start year` <- trueStart} #if the specified start is before the real start
+            if (line$`Start year` > trueStart){
+              line$`Start year` <- paste0(line$`Start year`, "-01-01")} #if the specified start is valid.
           }
-          if(line$`End year` < trueEnd){
-            #add in month and day 12-31
+          if (is.na(line$`End year`)==FALSE){
+            if (line$`End year` > trueEnd){
+              line$`End year` <- trueEnd} #if the specified end is after the real end
+            if(line$`End year` < trueEnd){
+              line$`End year` <- paste0(line$`End year`, "-12-31")} #if the specified end is valid.
           }
-        }
-        
-        # Create full timestamp series spanning specified (or automatically selected) time range, 1hr intervals
-        fullTS <- data.table::as.data.table(seq.POSIXt(strptime(paste(line$`Start year`, "00:00:00"), format = "%Y-%m-%d %T"), strptime(paste(line$`End year`, "23:59:59"), format = "%Y-%m-%d %T"), by="hour"))
-        data.table::setnames(fullTS, old = c("x"), new = c("timestamp"))
-        
-        # format base Aquarius time series
-        timestamp <- data.table::setDT(data.table::as.data.table(strptime(substr(RawDL$Points$Timestamp,0,19), "%FT%T")))
-        value <- data.table::setDT(data.table::as.data.table(RawDL$Points$Value))
-        #TODO: make the line below a data.table operation for time savings
-        rawdata <- as.data.frame(cbind(timestamp, value))
-        data.table::setnames(rawdata, old = c("x", "Numeric"), new = c("timestamp", "value"))
-        
-        # Join full timestamp series to native data time series
-        Aquarius[[paste0(i,"_",j)]] <- dplyr::full_join(fullTS, rawdata)
+          
+          #truncate according to set dates, if needed
+          rawdata <- rawdata[ rawdata$timestamp >= line$`Start year`& rawdata$timestamp <= line$`End year`]
+          # Remove NA values and order, and make a list element
+          
+          EQWin[[paste0(i,"_",j)]] <- na.omit(rawdata, cols=c("value","timestamp")) %>% setorder(cols="timestamp")
+          
+        },  error = function(e) {paste0("The time-series ", j, "for location ", i, "could not be found or could not be processed. Check the exact naming of the location and time-series.")})
       }
     }
-#TODO: use code in Lana's xle to csv script to round rawdata measurements to the nearest hour, and make it discard measurements occurring more than every hour. For measurements every few hours or daily, discard rows where there is no value to reduce data size.
   }
   
-  
-  if("EQWin" %in% sources == TRUE){
-    TSlist$EQWin
-  }
-  
+  #####Snow Survey fetch#####
   if("Snow Survey" %in% sources == TRUE){
-    
+    SnowSurvey <- list()
+    for (i in unique(TSlist$`Snow Survey`$`Location identifier`)){
+      fetch <- subset(TSlist$`Snow Survey`, `Location identifier` %in% i)
+      for (j in unique(fetch$`TS name`)){
+        tryCatch( { 
+          SnowSurvey[[paste0(i,"_",j)]] <- na.omit(rawdata)
+        },
+          error = function(e) {paste0("The time-series ", j, "for location ", i, "could not be found or could not be processed. Check the exact naming of the location and time-series.")})
+      }
+    }
   }
-    
-    
+
+  #####Workbook fetch#####
+  if("Workbook" %in% sources == TRUE){
+    Workbook <- list()
+    for (i in unique(TSlist$Workbook$`Location identifier`)){
+      fetch <- subset(TSlist$Workbook, `Location identifier` %in% i)
+      for (j in unique(fetch$`TS name`)){
+        tryCatch( { 
+          Workbook[[paste0(i,"_",j)]] <- na.omit(rawdata)
+        },
+        error = function(e) {paste0("The time-series ", j, "for location ", i, "could not be found or could not be processed. Check the exact naming of the location and time-series.")})
+      }
+    }
+  }
+  
+  #####WSC fetch#####
+  if("WSC" %in% sources == TRUE){
+    WSC <- list()
+    for (i in unique(TSlist$WSC$`Location identifier`)){
+      fetch <- subset(TSlist$WSC, `Location identifier` %in% i)
+      for (j in unique(fetch$`TS name`)){
+        tryCatch( { 
+          WSC[[paste0(i,"_",j)]] <- na.omit(rawdata)
+        },
+        error = function(e) {paste0("The time-series ", j, "for location ", i, "could not be found or could not be processed. Check the exact naming of the location and time-series.")})
+      }
+    }
+  }
+  
+  
+  #####ECCC fetch#####
+  if("ECCC" %in% sources == TRUE){
+    ECCC <- list()
+    for (i in unique(TSlist$ECCC$`Location identifier`)){
+      fetch <- subset(TSlist$ECCC, `Location identifier` %in% i)
+      for (j in unique(fetch$`TS name`)){
+        tryCatch( { 
+          ECCC[[paste0(i,"_",j)]] <- na.omit(rawdata)
+        },
+        error = function(e) {paste0("The time-series ", j, "for location ", i, "could not be found or could not be processed. Check the exact naming of the location and time-series.")})
+      }
+    }
+  }
+  
+  
+  
 } # End of function

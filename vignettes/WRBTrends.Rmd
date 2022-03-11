@@ -20,14 +20,16 @@ library(WRBTrends)
 ```
 
 
-This vignette introduces the WRBTrends package of functions and aims to support its use. The functions described below can be used to process and analyse data.frames and lists of data.frames containing time-series data, including repeated snowpack surveys, point measurements of various types, laboratory analyses, and water level readings.
+This vignette introduces the WRBTrends package of functions and aims to support its use. The functions described below can be used to process and analyse data.frames and lists of data.frames/tibbles containing time-series data, including repeated snowpack surveys, point measurements of various types, laboratory analyses, and water level readings.
 
-The heart of the package are the trend, Kendall, and rkt packages. Refer to their vignettes if you require more information about the mechanics of trend and slope calculations.
+In addition, the package contains functions to facilitate trend analyses. In particular, it contains functions to parse external documents containing grading and time-series identifier labels, using this information to download and format time-series data from Aquarius, EQWin, the Snow Survey Access database, ECCC, and Excel workbooks.
+
+The heart of the trend analysis functions are the trend, Kendall, and rkt packages. Refer to their vignettes and help files if you require more information about the mechanics of trend and slope calculations.
 
 ***
 
 
-### Example Data {#data}
+### Example Data for {#data}
 
 
 Two example datasets are provided:
@@ -48,19 +50,4 @@ data("ActiveHighSWE")
 
 
 ***
-  easyRKT                        Simplified way of running Regional/Seasonal Kendall tests
-  
-***
 
-#### Description
-
-Takes a list of data.frames and pre-processes them for use with the rkt package to return a regional/seasonal Kendall p-value and estimated slope. Adds rows to data.frames in the list to make each the same length and creates a blocking variable for each data.frame. Can factor covariables and correlation between blocks as well as deal with multiple data points in the same time period, but the underlying function rkt::rkt does not currently handle covariables.
-
-
-#### Usage
-
-easyRKT(data, valuesColumn, timeColumn, covariable = "none", correlate.correct = F, rep = "e")
-
-
-``` {r child = "../man/easyRKT.Rd"}
-```
