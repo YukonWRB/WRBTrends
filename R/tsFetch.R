@@ -27,49 +27,37 @@ tsFetch <- function(TSlist, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYl
   #Split into a list by source
   TSlist <- split(TS, by="Data location")
   
-  # AQTSServerID="https://yukon.aquaticinformatics.net/AQUARIUS"
-  # AQTSUsername="gtdelapl"
-  # AQTSPassword="WQ*2021!"
-  # dateRange="all"
-  # timeRange=c("00:00:00", "23:59:59")
-  # AQID="YOWN-1907"
-  # timeSeriesID="Wlevel_btoc.Calculated"
-  # chartXInterval="1 year"
-  # chartType="Level"
-  # saveTo="C:/Users/g_del/Desktop"
-  # specName=NULL
   
   #Dowload the data from each source
   if("Aquarius" %in% sources == TRUE){
     Aquarius <- list()
-    for (i in unique(TSlist$Aquarius$`Site identifier`)){
-      fetch <- subset(TSlist$Aquarius, `Site identifier` %in% i)
-      for (j in 1:nrow(fetch)){
-        line <- fetch[j] %>% dplyr::mutate_all(as.character) #made as.character to work with timeseries_client.R
+    for (i in unique(TSlist$Aquarius$`Location identifier`)){
+      fetch <- subset(TSlist$Aquarius, `Location identifier` %in% i)
+      for (j in unique(fetch$`TS name`)){
+        line <- subset(fetch, `TS name`%in% j) %>% dplyr::mutate_all(as.character) #made as.character to work with timeseries_client.R
         #Make the Aquarius configuration
         config = list(
           # Aquarius server credentials
           server="https://yukon.aquaticinformatics.net/AQUARIUS", username=AQlogin[1], password=AQlogin[2],
           # time series name@location EX: Wlevel_btoc.Calculated@YOWN-XXXX
-          timeSeriesName=paste0(line$`TS name`,"@",line$`Site identifier`),
+          timeSeriesName=paste0(line$`TS name`,".Logger@",line$`Location identifier`),
           # Analysis time period
-          if(is.na(line$`Start year`)==TRUE){
-            eventPeriodStartDay = "1950-01-01"
-          }
-          if(is.na(line$`Start year`)==FALSE){
-            eventPeriodStartDay = paste0(lines$`Start year`,"-01-01")
-          }
-          if(is.na(line$`End year`)==TRUE){
-            eventPeriodEndDay = as.character(Sys.Date())
-          }
-          if(is.na(line$`End year`)==FALSE){
-            eventPeriodEndDay = paste0(lines$`End year`,"-12-31")
-          }
-          # # Report title
-          # uploadedReportTitle = "Test Plot",
-          # # Remove pre-existing reports with the same name from Aquarius
-          # removeDuplicateReports = TRUE)
-         )
+          eventPeriodStartDay =
+            if(is.na(line$`Start year`)==TRUE){
+            "1950-01-01"
+            } else{
+              paste0(line$`Start year`,"-01-01")
+            },
+          eventPeriodEndDay = 
+            if(is.na(line$`End year`)==TRUE){
+            as.character(Sys.Date())
+            } else {
+              paste0(line$`End year`,"-12-31")
+            },
+          # Report title
+          uploadedReportTitle = "Test Plot",
+          # Remove pre-existing reports with the same name from Aquarius
+          removeDuplicateReports = TRUE)
         
         # Load supporting code
         source("R/timeseries_client.R")
@@ -88,32 +76,53 @@ tsFetch <- function(TSlist, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYl
         RawDL <- timeseries$getTimeSeriesCorrectedData(c(config$timeSeriesName),
                                                        queryFrom = fromPeriodStart,
                                                        queryTo = toPeriodEnd)
-        #Fix the start time and end time to match either that specified or that in the time-series, whichever is shorter.
-        #TODO: FIX THIS!!!!!
+        #Fix the start time and end time to match either that specified or that in the time-series, whichever is shorter; if nothing is specified then the entire Aquarius TS is fetched.
         trueStart <- RawDL$Points$Timestamp[1]
         trueStart <- substr(trueStart, 1, 10)
         trueEnd <- RawDL$Points$Timestamp[nrow(RawDL$Points)]
         trueEnd <- substr(trueEnd, 1, 10)
         
-        if (is.na(line$`Start year`)==TRUE){
+        if (is.na(line$`Start year`)==TRUE){ #if not specified, default to full range
           line$`Start year` <- trueStart
+        }
+        if (is.na(line$`End year`)==TRUE){ #if not specified, default to full range
+          line$`End year` <- trueEnd
         }
         if (is.na(line$`Start year`)==FALSE){
           if (line$`Start year` < trueStart){
             line$`Start year` <- trueStart
           }
+          if (line$`Start year` > trueStart){
+            #add in month and day 01-01
+          }
+        }
+        if (is.na(line$`End year`)==FALSE){
           if (line$`End year` > trueEnd){
             line$`End year` <- trueEnd
           }
+          if(line$`End year` < trueEnd){
+            #add in month and day 12-31
+          }
         }
+        
+        # Create full timestamp series spanning specified (or automatically selected) time range, 1hr intervals
+        fullTS <- data.table::as.data.table(seq.POSIXt(strptime(paste(line$`Start year`, "00:00:00"), format = "%Y-%m-%d %T"), strptime(paste(line$`End year`, "23:59:59"), format = "%Y-%m-%d %T"), by="hour"))
+        data.table::setnames(fullTS, old = c("x"), new = c("timestamp"))
+        
+        # format base Aquarius time series
+        timestamp <- data.table::setDT(data.table::as.data.table(strptime(substr(RawDL$Points$Timestamp,0,19), "%FT%T")))
+        value <- data.table::setDT(data.table::as.data.table(RawDL$Points$Value))
+        #TODO: make the line below a data.table operation for time savings
+        rawdata <- as.data.frame(cbind(timestamp, value))
+        data.table::setnames(rawdata, old = c("x", "Numeric"), new = c("timestamp", "value"))
+        
+        # Join full timestamp series to native data time series
+        Aquarius[[paste0(i,"_",j)]] <- dplyr::full_join(fullTS, rawdata)
       }
-      
-      
-      Aquarius[[i]] <- 
-      
     }
-      
+#TODO: use code in Lana's xle to csv script to round rawdata measurements to the nearest hour, and make it discard measurements occurring more than every hour. For measurements every few hours or daily, discard rows where there is no value to reduce data size.
   }
+  
   
   if("EQWin" %in% sources == TRUE){
     TSlist$EQWin
@@ -122,6 +131,6 @@ tsFetch <- function(TSlist, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYl
   if("Snow Survey" %in% sources == TRUE){
     
   }
-  
     
-}
+    
+} # End of function
