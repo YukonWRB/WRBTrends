@@ -5,7 +5,7 @@ Authors@R:
     person("Ghislain", "de Laplante", , "ghislaindel@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-5093-9185"))
 Description: A collection of functions developped by the Yukon Government Water Resources Branch used to analyze and render trends information for various time-series.
-Imports: dplyr, trend, Kendall, rkt, lubridate, purrr, broom, magrittr, plyr, tibble, data.table, RODBC, lubridate
+Imports: dplyr, trend, Kendall, rkt, lubridate, purrr, broom, magrittr, plyr, tibble, data.table, odbc, DBI, lubridate
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)

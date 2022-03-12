@@ -100,27 +100,30 @@ tsFetch <- function(TSlist, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYl
           # Remove NA values and order, and make a list element
           Aquarius[[paste0(i,"_",j)]] <- na.omit(rawdata, cols=c("value","timestamp")) %>% setorder(cols="timestamp")
           
-         },  error = function(e) {paste0("The time-series ", j, "for location ", i, "could not be found or could not be processed. Check the exact naming of the location and time-series.")})
+         },  error = function(e) {paste0("The time-series ", j, "for location ", i, "could not be found on the Aquarius server or could not be processed. Check the exact naming of the location and time-series.")})
         }
     }
   }
   
-  #####EQWin fetch#####
-  if("EQWin" %in% sources == TRUE){
+  #####Snow Survey fetch#####
+  if("Snow Survey" %in% sources == TRUE){
     #Download the data and select necessary columns
-    db <- "X:/Snow/DB/SnowDB.mdb" # Name the database
-    con <- RODBC::odbcConnectAccess(db) # Open a connection to the data
-    Meas <- RODBC::sqlFetch(con,'SNOW_SAMPLE') # Read the data in
-    RODBC::odbcCloseAll() # Close all connections to the database
-    Meas <- subset(Meas, select=c("SNOW_COURSE_ID","SNOW_WATER_EQUIV","SAMPLE_DATE","EXCLUDE_FLG"))
+    #db <- "X:/Snow/DB/SnowDB.mdb" # Name the database
+    db <- "C:/Users/g_del/OneDrive/Desktop/temp/SnowDB.mdb"
+    
+    #Code below is to get an Access connection on 64-bit machine; refer to Ellen Ward's code if this doesn't work on 32-bit machines as well
+    snowCon <- odbc::dbConnect(drv = odbc(), .connection_string = paste0("Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=C:/Users/g_del/OneDrive/Desktop/temp/SnowDB.mdb;"))
+    Meas <- DBI::dbReadTable(snowCon, "SNOW_SAMPLE")
+    dbDisconnect(snowCon)
+
+    Meas <- subset(Meas, select=c("SNOW_COURSE_ID","DEPTH","SNOW_WATER_EQUIV","SAMPLE_DATE","EXCLUDE_FLG"))
     #Manipulate things a bit
     Meas$month <- lubridate::month(Meas$SAMPLE_DATE)
     Meas$year <- lubridate::year(Meas$SAMPLE_DATE)
     Meas$day <- lubridate::day(Meas$SAMPLE_DATE)
     Meas <- Meas[which(Meas$EXCLUDE_FLG==0),] # OMIT VALUES OF EXCLUDEFLG=1, aka TRUE
     Meas$SAMPLE_DATE = as.character(Meas$SAMPLE_DATE) # Change date to character format
-    Meas$SNOW_COURSE_ID <- as.character(Meas$SNOW_COURSE_ID) # Change snow course ID to character format
-    
+
     # Special case (i) Twin Creeks - 09BA-SC02B
     #Step 1: Remove 09BA-SC02A values in 2016 (the year of overlap):
     Meas<-Meas[!(Meas$SNOW_COURSE_ID=="09BA-SC02A" & Meas$yr==2016),]
@@ -141,9 +144,9 @@ tsFetch <- function(TSlist, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYl
     # Step 4: Add this data back on to Histvals, to use for calculating values at 10AD-SC01B:
     Meas <- rbind(Meas,Target)
     
-    EQwin <- list()
-    for (i in unique(TSlist$EQwin$`Location identifier`)){
-      fetch <- subset(TSlist$EQWin, `Location identifier` %in% i)
+    SnowSurvey <- list()
+    for (i in unique(TSlist$`Snow Survey`$`Location identifier`)){
+      fetch <- subset(TSlist$`Snow Survey`, `Location identifier` %in% i)
       for (j in unique(fetch$`TS name`)){
         tryCatch( {
           line <- subset(fetch, `TS name`%in% j) %>% dplyr::mutate_all(as.character)
@@ -176,23 +179,23 @@ tsFetch <- function(TSlist, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYl
           rawdata <- rawdata[ rawdata$timestamp >= line$`Start year`& rawdata$timestamp <= line$`End year`]
           # Remove NA values and order, and make a list element
           
-          EQWin[[paste0(i,"_",j)]] <- na.omit(rawdata, cols=c("value","timestamp")) %>% setorder(cols="timestamp")
+          SnowSurvey[[paste0(i,"_",j)]] <- na.omit(rawdata, cols=c("value","timestamp")) %>% setorder(cols="timestamp")
           
-        },  error = function(e) {paste0("The time-series ", j, "for location ", i, "could not be found or could not be processed. Check the exact naming of the location and time-series.")})
+        },  error = function(e) {paste0("The time-series ", j, "for location ", i, "could not be found in the Snow Survey database or could not be processed. Check the exact naming of the location and time-series.")})
       }
     }
   }
   
-  #####Snow Survey fetch#####
-  if("Snow Survey" %in% sources == TRUE){
-    SnowSurvey <- list()
-    for (i in unique(TSlist$`Snow Survey`$`Location identifier`)){
-      fetch <- subset(TSlist$`Snow Survey`, `Location identifier` %in% i)
+  #####EQWin fetch#####
+  if("EQWin" %in% sources == TRUE){
+    EQWin <- list()
+    for (i in unique(TSlist$EQWin$`Location identifier`)){
+      fetch <- subset(TSlist$`EQWin`, `Location identifier` %in% i)
       for (j in unique(fetch$`TS name`)){
         tryCatch( { 
-          SnowSurvey[[paste0(i,"_",j)]] <- na.omit(rawdata)
+          EQWin[[paste0(i,"_",j)]] <- na.omit(rawdata)
         },
-          error = function(e) {paste0("The time-series ", j, "for location ", i, "could not be found or could not be processed. Check the exact naming of the location and time-series.")})
+          error = function(e) {paste0("The time-series ", j, "for location ", i, "could not be found in the EQWin database or could not be processed. Check the exact naming of the location and time-series.")})
       }
     }
   }
