@@ -49,8 +49,7 @@ tsFetch <- function(TSlist, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYl
             eventPeriodEndDay = 
               if(is.na(line$`End year`)==TRUE){
                 as.character(Sys.Date())} else {
-                paste0(line$`End year`,"-12-31")}
-          )
+                paste0(line$`End year`,"-12-31")})
           
           # Load supporting code
           source("R/timeseries_client.R")
@@ -98,7 +97,7 @@ tsFetch <- function(TSlist, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYl
           #truncate according to set dates, if needed
           rawdata <- rawdata[ rawdata$timestamp >= line$`Start year`& rawdata$timestamp <= line$`End year`]
           # Remove NA values and order, and make a list element
-          Aquarius[[paste0(i,"_",j)]] <- na.omit(rawdata, cols=c("value","timestamp")) %>% setorder(cols="timestamp")
+          Aquarius[[paste0(i,"_",j)]] <- na.omit(rawdata, cols=c("value","timestamp")) %>% data.table::setorder(cols="timestamp")
           
          },  error = function(e) {paste0("The time-series ", j, "for location ", i, "could not be found on the Aquarius server or could not be processed. Check the exact naming of the location and time-series.")})
         }
@@ -108,16 +107,15 @@ tsFetch <- function(TSlist, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYl
   #####Snow Survey fetch#####
   if("Snow Survey" %in% sources == TRUE){
     #Download the data and select necessary columns
-    #db <- "X:/Snow/DB/SnowDB.mdb" # Name the database
-    db <- "C:/Users/g_del/OneDrive/Desktop/temp/SnowDB.mdb"
-    
-    #Code below is to get an Access connection on 64-bit machine; refer to Ellen Ward's code if this doesn't work on 32-bit machines as well
-    snowCon <- odbc::dbConnect(drv = odbc(), .connection_string = paste0("Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=C:/Users/g_del/OneDrive/Desktop/temp/SnowDB.mdb;"))
+    #TODO: remove the extra path here
+    db <- "X:/Snow/DB/SnowDB.mdb"
+    #db <- "C:/Users/g_del/OneDrive/Desktop/temp/SnowDB.mdb"
+    snowCon <- odbc::dbConnect(drv = odbc::odbc(), .connection_string = paste0("Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=",db))
     Meas <- DBI::dbReadTable(snowCon, "SNOW_SAMPLE")
-    dbDisconnect(snowCon)
+    odbc::dbDisconnect(snowCon)
 
-    Meas <- subset(Meas, select=c("SNOW_COURSE_ID","DEPTH","SNOW_WATER_EQUIV","SAMPLE_DATE","EXCLUDE_FLG"))
     #Manipulate things a bit
+    Meas <- subset(Meas, select=c("SNOW_COURSE_ID","DEPTH","SNOW_WATER_EQUIV","SAMPLE_DATE","EXCLUDE_FLG"))
     Meas$month <- lubridate::month(Meas$SAMPLE_DATE)
     Meas$year <- lubridate::year(Meas$SAMPLE_DATE)
     Meas$day <- lubridate::day(Meas$SAMPLE_DATE)
@@ -126,6 +124,7 @@ tsFetch <- function(TSlist, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYl
 
     # Special case (i) Twin Creeks - 09BA-SC02B
     #Step 1: Remove 09BA-SC02A values in 2016 (the year of overlap):
+    #TODO: Ask Jonathan why snow course still sampled in 21, 22. Also confirm the correction factor.
     Meas<-Meas[!(Meas$SNOW_COURSE_ID=="09BA-SC02A" & Meas$yr==2016),]
     Meas<-Meas[!(Meas$SNOW_COURSE_ID=="09BA-SC02A" & Meas$yr==2021),]
     Meas<-Meas[!(Meas$SNOW_COURSE_ID=="09BA-SC02A" & Meas$yr==2022),]
@@ -134,55 +133,53 @@ tsFetch <- function(TSlist, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYl
     # Step 3: Rename these locations as 09BA-SC02B:
     Meas$SNOW_COURSE_ID[Meas$SNOW_COURSE_ID=="09BA-SC02A"] <- "09BA-SC02B" 
     
+    #TODO: confirm correction factor with Jonathan, check into overlap between the two
     # Special case (ii) Hyland 10AD-SC01 [(not A, just blank) vs 10AD-SC01B]
-    # Step 1: Identify the data we're targeting :
+    # Step 1: Select the pre 2018 data
     Target <- Meas[which(Meas$SNOW_COURSE_ID=="10AD-SC01" & Meas$yr<2018),] 
     # Step 2: Rename the snow course ID to the B series
     Target$SNOW_COURSE_ID <- "10AD-SC01B" 
     # Step 3: Multiply SNOW_WATER_EQUIVALENT by the appropriate ratio 
     Target$SNOW_WATER_EQUIV <- 1.17*(Target$SNOW_WATER_EQUIV) 
-    # Step 4: Add this data back on to Histvals, to use for calculating values at 10AD-SC01B:
+    # Step 4: Add this data back on to Meas, to use for calculating values at 10AD-SC01B:
     Meas <- rbind(Meas,Target)
     
+    #Pull the data out and truncate based on specified start/end dates
     SnowSurvey <- list()
     for (i in unique(TSlist$`Snow Survey`$`Location identifier`)){
-      fetch <- subset(TSlist$`Snow Survey`, `Location identifier` %in% i)
-      for (j in unique(fetch$`TS name`)){
-        tryCatch( {
-          line <- subset(fetch, `TS name`%in% j) %>% dplyr::mutate_all(as.character)
-
-          #Find the real start/end of the TS
-          trueStart <- RawDL$Points$Timestamp[1]
-          trueStart <- substr(trueStart, 1, 10)
-          trueEnd <- RawDL$Points$Timestamp[nrow(RawDL$Points)]
-          trueEnd <- substr(trueEnd, 1, 10)
-          
-          #Fix the Start year/end year
-          if (is.na(line$`Start year`)==TRUE){ #if not specified, default to full range
-            line$`Start year` <- trueStart}
-          if (is.na(line$`End year`)==TRUE){ #if not specified, default to full range
-            line$`End year` <- trueEnd}
-          if (is.na(line$`Start year`)==FALSE){
-            if (line$`Start year` < trueStart){
-              line$`Start year` <- trueStart} #if the specified start is before the real start
-            if (line$`Start year` > trueStart){
-              line$`Start year` <- paste0(line$`Start year`, "-01-01")} #if the specified start is valid.
-          }
-          if (is.na(line$`End year`)==FALSE){
-            if (line$`End year` > trueEnd){
-              line$`End year` <- trueEnd} #if the specified end is after the real end
-            if(line$`End year` < trueEnd){
-              line$`End year` <- paste0(line$`End year`, "-12-31")} #if the specified end is valid.
-          }
-          
-          #truncate according to set dates, if needed
-          rawdata <- rawdata[ rawdata$timestamp >= line$`Start year`& rawdata$timestamp <= line$`End year`]
-          # Remove NA values and order, and make a list element
-          
-          SnowSurvey[[paste0(i,"_",j)]] <- na.omit(rawdata, cols=c("value","timestamp")) %>% setorder(cols="timestamp")
-          
-        },  error = function(e) {paste0("The time-series ", j, "for location ", i, "could not be found in the Snow Survey database or could not be processed. Check the exact naming of the location and time-series.")})
-      }
+      tryCatch( {
+        line <- subset(fetch, `TS name`%in% i) %>% dplyr::mutate_all(as.character)
+        
+        #Find the real start/end of the TS; dat becomes the data for i
+        dat <- Meas[(Meas$SNOW_COURSE_ID==i),]
+        dat <- dat[order(dat$SAMPLE_DATE),]
+        trueStart <- dat$SAMPLE_DATE[1]
+        trueEnd <- dat$SAMPLE_DATE[nrow(dat)]
+        
+        #Fix the Start year/end year
+        if (is.na(line$`Start year`)==TRUE){ #if not specified, default to full range
+          line$`Start year` <- trueStart}
+        if (is.na(line$`End year`)==TRUE){ #if not specified, default to full range
+          line$`End year` <- trueEnd}
+        if (is.na(line$`Start year`)==FALSE){
+          if (line$`Start year` < trueStart){
+            line$`Start year` <- trueStart} #if the specified start is before the real start
+          if (line$`Start year` > trueStart){
+            line$`Start year` <- paste0(line$`Start year`, "-01-01")} #if the specified start year is valid.
+        }
+        if (is.na(line$`End year`)==FALSE){
+          if (line$`End year` > trueEnd){
+            line$`End year` <- trueEnd} #if the specified end is after the real end
+          if(line$`End year` < trueEnd){
+            line$`End year` <- paste0(line$`End year`, "-12-31")} #if the specified end year is valid.
+        }
+        
+        #truncate according to set dates, if needed
+        test <- dat[which(dat$SAMPLE_DATE >= line$`Start year`& dat$SAMPLE_DATE <= line$`End year`),]
+        # Remove NA values if depth AND SWE missing, order, and make a list element for i
+        SnowSurvey[[i]] <- dat[!with(dat,is.na("DEPTH")& is.na("SNOW_WATER_EQUIV")),] %>% data.table::setorder(cols="SAMPLE_DATE")
+        
+      },  error = function(e) {paste0("The time-series for location ", i, "could not be found in the Snow Survey database or could not be processed. Check the exact naming of the location and time-series.")})
     }
   }
   
