@@ -1,7 +1,3 @@
-library(readxl)
-library(dplyr)
-library(magrittr)
-
 #TODO: get pipe operator (magritr) recognized when making into package function. run usethis::use_pipe()
 
 
