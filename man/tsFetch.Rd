@@ -5,20 +5,29 @@
 \title{Utility for automatically fetching time-series data}
 \usage{
 tsFetch(
-  TSlist,
+  TS,
   sources = "all",
   AQlogin = c("gtdelapl", "WQ*2021!"),
-  HYlogin = NULL
+  HYlogin = NULL,
+  WorkbookPath = NULL,
+  SnowSurveyPath = "X:/Snow/DB/SnowDB.mdb",
+  EQWinPath = "X:/EQWin/WR/DB/Water Resources.mdb"
 )
 }
 \arguments{
-\item{TSlist}{The data.table output of WRBTrends::stationMeta, containing at minimum the default columns specified by that function.}
+\item{TS}{The data.table output of WRBTrends::stationMeta, containing at minimum the default columns specified by that function.}
 
 \item{sources}{The list of sources you wish to download data for. "all" means all the sources listed in the "Data location" column of the input data.table. Can also specify from "Aquarius", "EQWin", "Snow Survey", "ECCC", or "Workbook" if you want to exclude any sources. If specifying "Workbook" all time-series must be in individual workbook tabs with columns "datetime" and "value".}
 
 \item{AQlogin}{The login parameters for Aquarius in format c("username", "password"). Leave NULL if you are not fetching from Aquarius, in which case you should either ensure it is not specified in the input data.table or is excluded under the source parameter.}
 
 \item{HYlogin}{The login parameters for HYDAT in format c("username", "password"). Leave NULL if you are not fetching from Aquarius, in which case you should either ensure it is not specified in the input data.table or is excluded under the source parameter.}
+
+\item{WorkbookPath}{The exact path to the Excel workbook containing time-series information that you wish to analyze, if applicable. Each tab (from 1 to n) should contain a single time-series.}
+
+\item{SnowSurveyPath}{The exact path to the Snow Survey Access database. If specifying an Access database see the note below.}
+
+\item{EQWinPath}{The exact path to the EQWin access database. If specifying an Access database see the note below.}
 }
 \value{
 A list containing one element (tibble) per time-series, with processing performed to standardize the time-series to one common format. Designed to act as input to the WRBTrends:: ???? and ???? functions.
@@ -29,4 +38,10 @@ If you are fetching information from the EQWin or Snow Survey Access databases y
 }
 \details{
 BE AWARE that this function may take a long time to execute, perform work on a multi-core machine with lots of memory and a good internet connection!
+
+If you are using Access databases you will need to download and install the Microsoft Access Database Engine Redistributable on your machine. As of spring 2022 the latest version is here: https://www.microsoft.com/en-us/download/details.aspx?id=54920.
+
+This will work fine if you have R and Access in 32 OR 64 bit versions. If that's not the case then the best way forward is to upgrade your R and Office installations to 64 bit versions. If that's not possible (you have 64 bit Windows and R but 32 bit Access for example) you will still need the 64-bit version of the redistributable. Windows won't easily let you do it, and this method is a hack, but if you insist: download and save the 64-bit version somewhere. Then, install it from the command prompt with warnings suppressed. Open the command prompt, then type the path to the .exe followed by quiet like this: C:\Users\gtdelapl>Downloads\accessdatabaseengine_X64.exe/quiet. WARNING: this might damage your Office installation. If it did, you can try uninstalling the redistributable from Add/Remove Programs, if that fails just remove the Office install and start again with the proper 64-bit version.
+
+The Snow Survey processing includes applying a correction factor to Hyland and Twin Creeks stations to harmonize the new stations with the old stations.
 }

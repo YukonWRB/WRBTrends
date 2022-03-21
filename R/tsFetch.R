@@ -4,18 +4,30 @@
 #' If you are fetching information from the EQWin or Snow Survey Access databases you MUST have access to the X drive on your machine. Aquarius data can be fetched from anywhere with an internet connection.
 #' 
 #' BE AWARE that this function may take a long time to execute, perform work on a multi-core machine with lots of memory and a good internet connection!
+#' 
+#' If you are using Access databases you will need to download and install the Microsoft Access Database Engine Redistributable on your machine. As of spring 2022 the latest version is here: https://www.microsoft.com/en-us/download/details.aspx?id=54920. 
+#' 
+#' This will work fine if you have R and Access in 32 OR 64 bit versions. If that's not the case then the best way forward is to upgrade your R and Office installations to 64 bit versions. If that's not possible (you have 64 bit Windows and R but 32 bit Access for example) you will still need the 64-bit version of the redistributable. Windows won't easily let you do it, and this method is a hack, but if you insist: download and save the 64-bit version somewhere. Then, install it from the command prompt with warnings suppressed. Open the command prompt, then type the path to the .exe followed by quiet like this: C:\Users\gtdelapl>Downloads\accessdatabaseengine_X64.exe/quiet. WARNING: this might damage your Office installation. If it did, you can try uninstalling the redistributable from Add/Remove Programs, if that fails just remove the Office install and start again with the proper 64-bit version.
+#'
+#'The Snow Survey processing includes applying a correction factor to Hyland and Twin Creeks stations to harmonize the new stations with the old stations.
 #'
 #' @param TS The data.table output of WRBTrends::stationMeta, containing at minimum the default columns specified by that function.
 #' @param sources The list of sources you wish to download data for. "all" means all the sources listed in the "Data location" column of the input data.table. Can also specify from "Aquarius", "EQWin", "Snow Survey", "ECCC", or "Workbook" if you want to exclude any sources. If specifying "Workbook" all time-series must be in individual workbook tabs with columns "datetime" and "value".
 #' @param AQlogin The login parameters for Aquarius in format c("username", "password"). Leave NULL if you are not fetching from Aquarius, in which case you should either ensure it is not specified in the input data.table or is excluded under the source parameter.
 #' @param HYlogin The login parameters for HYDAT in format c("username", "password"). Leave NULL if you are not fetching from Aquarius, in which case you should either ensure it is not specified in the input data.table or is excluded under the source parameter.
+#' @param WorkbookPath The exact path to the Excel workbook containing time-series information that you wish to analyze, if applicable. Each tab (from 1 to n) should contain a single time-series.
+#' @param SnowSurveyPath The exact path to the Snow Survey Access database. If specifying an Access database see the note below.
+#' @param EQWinPath The exact path to the EQWin access database. If specifying an Access database see the note below.
+#' 
 #' @return A list containing one element (tibble) per time-series, with processing performed to standardize the time-series to one common format. Designed to act as input to the WRBTrends:: ???? and ???? functions.
 #' 
 #' @import data.table
 #' @export
 #' @examples
 
-tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin=NULL){
+tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin=NULL, WorkbookPath=NULL, SnowSurveyPath="X:/Snow/DB/SnowDB.mdb", EQWinPath="X:/EQWin/WR/DB/Water Resources.mdb"){
+  
+  #db <- "C:/Users/g_del/OneDrive/Desktop/temp/SnowDB.mdb"
   
   #Find all the data sources
   if (sources=="all"){
@@ -24,9 +36,11 @@ tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin
   TS <- split(TS, by="Data location")
   
   
-  #Dowload the data from each source
+  #Download the data from each source
   #####Aquarius fetch#####
   if("Aquarius" %in% sources == TRUE){
+    # Load supporting code
+    source("R/timeseries_client.R")
     Aquarius <- list()
     for (i in unique(TS$Aquarius$`Location identifier`)){
       fetch <- subset(TS$Aquarius, `Location identifier` %in% i)
@@ -49,8 +63,6 @@ tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin
                 as.character(Sys.Date())} else {
                 paste0(line$`End year`,"-12-31")})
           
-          # Load supporting code
-          source("R/timeseries_client.R")
           # Connect to Aquarius server
           timeseries$connect(config$server, config$username, config$password)
           # Get the location metadata
@@ -105,10 +117,7 @@ tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin
   #####Snow Survey fetch#####
   if("Snow Survey" %in% sources == TRUE){
     #Download the data and select necessary columns
-    #TODO: remove the extra path here
-    db <- "X:/Snow/DB/SnowDB.mdb"
-    #db <- "C:/Users/g_del/OneDrive/Desktop/temp/SnowDB.mdb"
-    snowCon <- odbc::dbConnect(drv = odbc::odbc(), .connection_string = paste0("Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=",db))
+    snowCon <- odbc::dbConnect(drv = odbc::odbc(), .connection_string = paste0("Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=",SnowSurveyPath))
     meas <- DBI::dbReadTable(snowCon, "SNOW_SAMPLE")
     odbc::dbDisconnect(snowCon)
 
@@ -120,29 +129,23 @@ tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin
     meas <- meas[which(meas$EXCLUDE_FLG==0),] # OMIT VALUES OF EXCLUDEFLG=1, aka TRUE
     meas$SAMPLE_DATE = as.character(meas$SAMPLE_DATE) # Change date to character format
 
-    # Special case (i) Twin Creeks - 09BA-SC02B
-    #Step 1: Remove 09BA-SC02A values in 2016 (the year of overlap):
-    #TODO: Ask Jonathan why snow course still sampled in 21, 22. Also confirm the correction factor.
-    #TODO: apply the same correction to depth?
-    meas<-meas[!(meas$SNOW_COURSE_ID=="09BA-SC02A" & meas$yr==2016),]
-    meas<-meas[!(meas$SNOW_COURSE_ID=="09BA-SC02A" & meas$yr==2021),]
-    meas<-meas[!(meas$SNOW_COURSE_ID=="09BA-SC02A" & meas$yr==2022),]
-    # Step 2: Multiply all 09BA-SC02A values by 0.79 to estimate the historic 09BA-SC02B values:
-    meas$SNOW_WATER_EQUIV[meas$SNOW_COURSE_ID=="09BA-SC02A"] <- 0.79*(meas$SNOW_WATER_EQUIV[meas$SNOW_COURSE_ID=="09BA-SC02A"]) 
-    # Step 3: Rename these locations as 09BA-SC02B:
+    # Special case (i) Twin Creeks - 09BA-SC02B: 09BA-SC02B will take precedence over A from 2016 onwards. A correction factor can be calculated from the overlapping years of data for SWE and depth.
+    #Step 1: Remove 09BA-SC02A values in 2016 and later. 
+    meas <- meas[!(meas$SNOW_COURSE_ID=="09BA-SC02A" & meas$year>=2016),]
+    # Step 2: Multiply all 09BA-SC02A values by 0.825 (DEPTH) and 0.853 (SWE):
+    meas$SNOW_WATER_EQUIV[meas$SNOW_COURSE_ID=="09BA-SC02A"] <- 0.825*(meas$SNOW_WATER_EQUIV[meas$SNOW_COURSE_ID=="09BA-SC02A"])
+    meas$DEPTH[meas$SNOW_COURSE_ID=="09BA-SC02A"] <- 0.853*(meas$DEPTH[meas$SNOW_COURSE_ID=="09BA-SC02A"])
+    # Step 3: Rename these locations as 09BA-SC02B (A will no longer exist here)
     meas$SNOW_COURSE_ID[meas$SNOW_COURSE_ID=="09BA-SC02A"] <- "09BA-SC02B" 
     
-    #TODO: confirm correction factor with Jonathan, check into overlap between the two
-    #TODO: apply the same correction to depth?
-    # Special case (ii) Hyland 10AD-SC01 [(not A, just blank) vs 10AD-SC01B]
-    # Step 1: Select the pre 2018 data
-    Target <- meas[which(meas$SNOW_COURSE_ID=="10AD-SC01" & meas$yr<2018),] 
-    # Step 2: Rename the snow course ID to the B series
-    Target$SNOW_COURSE_ID <- "10AD-SC01B" 
-    # Step 3: Multiply SNOW_WATER_EQUIVALENT by the appropriate ratio 
-    Target$SNOW_WATER_EQUIV <- 1.17*(Target$SNOW_WATER_EQUIV) 
-    # Step 4: Add this data back on to meas, to use for calculating values at 10AD-SC01B:
-    meas <- rbind(meas,Target)
+    # Special case (ii) Hyland 10AD-SC01 and 10AD-SC01B. B will take precedence over A from 2018 onwards. A correction factor can be calculated from the overlapping years of data for SWE and depth.
+    #Step 1: Remove SC01 blank values in 2018 and later.
+    meas <- meas[!(meas$SNOW_COURSE_ID=="10AD-SC01" & meas$year>=2018),]
+    #Step 2: Multiply values later than 2018 to match B series: SWE by 1.127, depth by 1.115
+    meas$SNOW_WATER_EQUIV[meas$SNOW_COURSE_ID=="10AD-SC01"] <- 1.127*(meas$SNOW_WATER_EQUIV[meas$SNOW_COURSE_ID=="10AD-SC01"])
+    meas$DEPTH[meas$SNOW_COURSE_ID=="10AD-SC01"] <- 1.115*(meas$DEPTH[meas$SNOW_COURSE_ID=="10AD-SC01"])
+    # Step 3: Rename these locations as 010AD-SC01B (blank will no longer exist)
+    meas$SNOW_COURSE_ID[meas$SNOW_COURSE_ID=="10AD-SC01"] <- "10AD-SC01B" 
     
     #Pull the data out and truncate based on specified start/end dates
     #TODO: add an if loop to deal with SWE and/or depth, specified in the `TS name` column of TS
@@ -187,10 +190,7 @@ tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin
   #####EQWin fetch#####
   if("EQWin" %in% sources == TRUE){
     #Download the data, select necessary columns, combine everything together
-    #TODO: remove the extra path here
-    #db <- "X:/WR/DB/Water Resources.mdb"
-    db <- "C:/Users/g_del/OneDrive/Desktop/temp/Water Resources.mdb"
-    EQCon <- odbc::dbConnect(drv = odbc::odbc(), .connection_string = paste0("Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=",db)) #open the connection
+    EQCon <- odbc::dbConnect(drv = odbc::odbc(), .connection_string = paste0("Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=",EQWinPath)) #open the connection
     params <- data.table::as.data.table(DBI::dbReadTable(EQCon, "eqparams") %>% subset(select=c("ParamId", "ParamCode", "ParamName", "Units", "udf_diss_tot_extract", "udf_symbol", "ParamDesc", "ParamClass"))) #get the parameter detail sheet
     samps <- data.table::as.data.table(DBI::dbReadTable(EQCon, "eqsampls") %>% subset(select=c("SampleId", "StnId", "CollectDateTime"))) #get the metadata for each sample
     stns <- data.table::as.data.table(DBI::dbReadTable(EQCon, "eqstns") %>% subset(select=c("StnId", "StnCode", "StnName", "StnDesc", "UTMZone", "Easting", "Northing", "udf_Stn_Status")))
@@ -245,6 +245,7 @@ tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin
     
   #####Workbook fetch#####
   if("Workbook" %in% sources == TRUE){
+    
     Workbook <- list()
     for (i in unique(TS$Workbook$`Location identifier`)){
       fetch <- subset(TS$Workbook, `Location identifier` %in% i)
