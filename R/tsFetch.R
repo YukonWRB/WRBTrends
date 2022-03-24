@@ -1,13 +1,16 @@
 #' Utility for automatically fetching time-series data
 #' 
-#' This script takes the data.table output  from the stationMeta function (truncated if you desire fewer stations) and fetches time-series information for the stations contained in the "Site name", "Location identifier" columns.
-#' If you are fetching information from the EQWin or Snow Survey Access databases you MUST have access to the X drive on your machine. Aquarius data can be fetched from anywhere with an internet connection.
+#' This script takes the data.table output  from the stationMeta function (truncated if you desire fewer stations) and fetches time-series information for the stations contained in the "Site name", "Location identifier" columns present in the Excel workbook fed to stationMeta. The Data location column informs where this script looks for data, and entries there must correspond exactly to one of EQWin, Aquarius, Snow Survey Access, Workbook, WSC, or ECCC.
 #' 
-#' BE AWARE that this function may take a long time to execute, perform work on a multi-core machine with lots of memory and a good internet connection!
+#' BE AWARE that this function may take a long time to execute, perform work on with lots of memory and a good internet connection!
+#' 
+#' If you are fetching information from the EQWin or Snow Survey Access databases you MUST have access to the X drive on your machine. Aquarius, WSC, and ECCC data can be fetched from anywhere with an internet connection.
 #' 
 #' If you are using Access databases you will need to download and install the Microsoft Access Database Engine Redistributable on your machine. As of spring 2022 the latest version is here: https://www.microsoft.com/en-us/download/details.aspx?id=54920. 
 #' 
 #' This will work fine if you have R and Access in 32 OR 64 bit versions. If that's not the case then the best way forward is to upgrade your R and Office installations to 64 bit versions. If that's not possible (you have 64 bit Windows and R but 32 bit Access for example) you will still need the 64-bit version of the redistributable. Windows won't easily let you do it, and this method is a hack, but if you insist: download and save the 64-bit version somewhere. Then, install it from the command prompt with warnings suppressed. Open the command prompt, then type the path to the .exe followed by quiet like this: C:\Users\gtdelapl>Downloads\accessdatabaseengine_X64.exe/quiet. WARNING: this might damage your Office installation. If it did, you can try uninstalling the redistributable from Add/Remove Programs, if that fails just remove the Office install and start again with the proper 64-bit version.
+#' 
+#' If you are specifying an Excel workbook with time-series, each tab in the workbook must contain a single time-series. The tab must be named as Location identifier TS name, with Location identifier and TS name EXACTLY matching the relevant entries in the Excel metadata workbook, separated by a space. The first column of each tab must contain a time/date information, the second tab must contain the corresponding value. The header must be on line 1 (column names are not important) with no empty lines.
 #'
 #'The Snow Survey processing includes applying a correction factor to Hyland and Twin Creeks stations to harmonize the new stations with the old stations.
 #'
@@ -15,7 +18,7 @@
 #' @param sources The list of sources you wish to download data for. "all" means all the sources listed in the "Data location" column of the input data.table. Can also specify from "Aquarius", "EQWin", "Snow Survey", "ECCC", or "Workbook" if you want to exclude any sources. If specifying "Workbook" all time-series must be in individual workbook tabs with columns "datetime" and "value".
 #' @param AQlogin The login parameters for Aquarius in format c("username", "password"). Leave NULL if you are not fetching from Aquarius, in which case you should either ensure it is not specified in the input data.table or is excluded under the source parameter.
 #' @param HYlogin The login parameters for HYDAT in format c("username", "password"). Leave NULL if you are not fetching from Aquarius, in which case you should either ensure it is not specified in the input data.table or is excluded under the source parameter.
-#' @param WorkbookPath The exact path to the Excel workbook containing time-series information that you wish to analyze, if applicable. Each tab (from 1 to n) should contain a single time-series.
+#' @param WorkbookPath The exact path to the Excel workbook containing time-series information that you wish to analyze, if applicable. Each tab in the workbook (from 1 to n) should contain a single time-series, named as   Location identifier TS name. Location identifier and TS name must EXACTLY match the entries in the Excel metadata workbook, separated by a space.
 #' @param SnowSurveyPath The exact path to the Snow Survey Access database. If specifying an Access database see the note below.
 #' @param EQWinPath The exact path to the EQWin access database. If specifying an Access database see the note below.
 #' 
@@ -55,13 +58,11 @@ tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin
             timeSeriesName=paste0(line$`TS name`,".Logger@",line$`Location identifier`),
             # Analysis time period
             eventPeriodStartDay =
-              if(is.na(line$`Start year`)==TRUE){
-                "1950-01-01"} else {
-                paste0(line$`Start year`,"-01-01")},
+              if(is.na(line$`Start date`)==TRUE){
+                "1950-01-01"},
             eventPeriodEndDay = 
-              if(is.na(line$`End year`)==TRUE){
-                as.character(Sys.Date())} else {
-                paste0(line$`End year`,"-12-31")})
+              if(is.na(line$`End date`)==TRUE){
+                as.character(Sys.Date())})
           
           # Connect to Aquarius server
           timeseries$connect(config$server, config$username, config$password)
@@ -87,25 +88,21 @@ tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin
           trueEnd <- RawDL$Points$Timestamp[nrow(RawDL$Points)]
           trueEnd <- substr(trueEnd, 1, 10)
           
-          if (is.na(line$`Start year`)==TRUE){ #if not specified, default to full range
-            line$`Start year` <- trueStart}
-          if (is.na(line$`End year`)==TRUE){ #if not specified, default to full range
-            line$`End year` <- trueEnd}
-          if (is.na(line$`Start year`)==FALSE){
-            if (line$`Start year` < trueStart){
-              line$`Start year` <- trueStart} #if the specified start is before the real start
-            if (line$`Start year` > trueStart){
-              line$`Start year` <- paste0(line$`Start year`, "-01-01")} #if the specified start is valid.
+          if (is.na(line$`Start date`)==TRUE){ #if not specified, default to full range
+            line$`Start date` <- trueStart}
+          if (is.na(line$`End date`)==TRUE){ #if not specified, default to full range
+            line$`End date` <- trueEnd}
+          if (is.na(line$`Start date`)==FALSE){
+            if (line$`Start date` < trueStart){
+              line$`Start date` <- trueStart} #if the specified start is before the real start
           }
-          if (is.na(line$`End year`)==FALSE){
-            if (line$`End year` > trueEnd){
-              line$`End year` <- trueEnd} #if the specified end is after the real end
-            if(line$`End year` < trueEnd){
-              line$`End year` <- paste0(line$`End year`, "-12-31")} #if the specified end is valid.
+          if (is.na(line$`End date`)==FALSE){
+            if (line$`End date` > trueEnd){
+              line$`End date` <- trueEnd} #if the specified end is after the real end
           }
           
           #truncate according to set dates, if needed
-          rawdata <- rawdata[ rawdata$timestamp >= line$`Start year`& rawdata$timestamp <= line$`End year`]
+          rawdata <- rawdata[ rawdata$timestamp >= line$`Start date`& rawdata$timestamp <= line$`End date`]
           # Remove NA values and order, and make a list element
           Aquarius[[paste0(i,"_",j)]] <- na.omit(rawdata, cols=c("value","timestamp")) %>% data.table::setorder(cols="timestamp")
           
@@ -148,42 +145,47 @@ tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin
     meas$SNOW_COURSE_ID[meas$SNOW_COURSE_ID=="10AD-SC01"] <- "10AD-SC01B" 
     
     #Pull the data out and truncate based on specified start/end dates
-    #TODO: add an if loop to deal with SWE and/or depth, specified in the `TS name` column of TS
     SnowSurvey <- list()
     for (i in unique(TS$`Snow Survey`$`Location identifier`)){
+      fetch <- subset(TS$`Snow Survey`, `Location identifier` %in% i)
+      for (j in unique(fetch$`TS name`)){
       tryCatch( {
-        line <- subset(TS$`Snow Survey`, `TS name`%in% i) %>% dplyr::mutate_all(as.character)
+        line <- subset(fetch, `TS name` %in% j) %>% dplyr::mutate_all(as.character)
         
-        #Find the real start/end of the TS; dat becomes the data for i
+        #Keep only j, find the real start/end of the TS; dat becomes the data for i
         dat <- meas[(meas$SNOW_COURSE_ID==i),]
+        #TODO: keep only SWE or Depth column
+        if (line$`TS name` == SWE){
+          
+        }
+        if(line$`TS name` == Depth){
+          
+        }
         dat <- dat[order(dat$SAMPLE_DATE),]
         trueStart <- dat$SAMPLE_DATE[1]
         trueEnd <- dat$SAMPLE_DATE[nrow(dat)]
         
-        #Fix the Start year/end year
-        if (is.na(line$`Start year`)==TRUE){ #if not specified, default to full range
-          line$`Start year` <- trueStart}
-        if (is.na(line$`End year`)==TRUE){ #if not specified, default to full range
-          line$`End year` <- trueEnd}
-        if (is.na(line$`Start year`)==FALSE){
-          if (line$`Start year` < trueStart){
-            line$`Start year` <- trueStart} #if the specified start is before the real start
-          if (line$`Start year` > trueStart){
-            line$`Start year` <- paste0(line$`Start year`, "-01-01")} #if the specified start year is valid.
+        #Fix the Start date/End date
+        if (is.na(line$`Start date`)==TRUE){ #if not specified, default to full range
+          line$`Start date` <- trueStart}
+        if (is.na(line$`End date`)==TRUE){ #if not specified, default to full range
+          line$`End date` <- trueEnd}
+        if (is.na(line$`Start date`)==FALSE){
+          if (line$`Start date` < trueStart){
+            line$`Start date` <- trueStart} #if the specified start is before the real start
         }
-        if (is.na(line$`End year`)==FALSE){
-          if (line$`End year` > trueEnd){
-            line$`End year` <- trueEnd} #if the specified end is after the real end
-          if(line$`End year` < trueEnd){
-            line$`End year` <- paste0(line$`End year`, "-12-31")} #if the specified end year is valid.
+        if (is.na(line$`End date`)==FALSE){
+          if (line$`End date` > trueEnd){
+            line$`End date` <- trueEnd} #if the specified end is after the real end
         }
         
-        #truncate according to set dates, if needed
-        dat <- dat[which(dat$SAMPLE_DATE >= line$`Start year`& dat$SAMPLE_DATE <= line$`End year`),]
-        # Remove NA values if depth AND SWE missing, order, and make a list element for i
-        SnowSurvey[[i]] <- dat[!with(dat,is.na("DEPTH")& is.na("SNOW_WATER_EQUIV")),] %>% data.table::setorder(cols="SAMPLE_DATE")
+        # Truncate according to set dates, if needed
+        dat <- dat[which(dat$SAMPLE_DATE >= line$`Start date`& dat$SAMPLE_DATE <= line$`End date`),]
         
-      },  error = function(e) {paste0("The time-series for location ", i, "could not be found in the Snow Survey database or could not be processed. Check the exact naming of the location and time-series.")})
+        # Order and make a list element for i,j
+        SnowSurvey[[paste0(i,"_",j)]] <- dat %>% data.table::setorder(cols="SAMPLE_DATE")
+        
+      },  error = function(e) {paste0("The time-series ", j," for location ", i, " could not be found in the Snow Survey database or could not be processed. Check the exact naming of the location and time-series.")})
     }
   } #End of Snow Survey if loop
   
@@ -214,26 +216,22 @@ tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin
           trueStart <- dat$CollectDateTime[1]
           trueEnd <- dat$CollectDateTime[nrow(dat)]
           
-          #Fix the Start year/end year
-          if (is.na(line$`Start year`)==TRUE){ #if not specified, default to full range
-            line$`Start year` <- trueStart}
-          if (is.na(line$`End year`)==TRUE){ #if not specified, default to full range
-            line$`End year` <- trueEnd}
-          if (is.na(line$`Start year`)==FALSE){
-            if (line$`Start year` < trueStart){
-              line$`Start year` <- trueStart} #if the specified start is before the real start
-            if (line$`Start year` > trueStart){
-              line$`Start year` <- paste0(line$`Start year`, "-01-01")} #if the specified start year is valid.
+          #Fix the Start date/End date
+          if (is.na(line$`Start date`)==TRUE){ #if not specified, default to full range
+            line$`Start date` <- trueStart}
+          if (is.na(line$`End date`)==TRUE){ #if not specified, default to full range
+            line$`End date` <- trueEnd}
+          if (is.na(line$`Start date`)==FALSE){
+            if (line$`Start date` < trueStart){
+              line$`Start date` <- trueStart} #if the specified start is before the real start
           }
-          if (is.na(line$`End year`)==FALSE){
-            if (line$`End year` > trueEnd){
-              line$`End year` <- trueEnd} #if the specified end is after the real end
-            if(line$`End year` < trueEnd){
-              line$`End year` <- paste0(line$`End year`, "-12-31")} #if the specified end year is valid.
+          if (is.na(line$`End date`)==FALSE){
+            if (line$`End date` > trueEnd){
+              line$`End date` <- trueEnd} #if the specified end is after the real end
           }
           
           #truncate according to set dates, if needed
-          dat <- dat[which(dat$CollectDateTime >= line$`Start year`& dat$CollectDateTime <= line$`End year`),]
+          dat <- dat[which(dat$CollectDateTime >= line$`Start date`& dat$CollectDateTime <= line$`End date`),]
           # make a list element for i
           EQWin[[paste0(i,"_",j)]] <- dat
         },  
@@ -244,16 +242,25 @@ tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin
 
     
   #####Workbook fetch#####
+  WorkbookPath <- "C:/Users/gtdelapl/Desktop/Book1.xlsx"
   if("Workbook" %in% sources == TRUE){
-    
+    sheets <- readxl::excel_sheets(WorkbookPath) #get the names of each sheet in the workbook
+    data <- list()
+    for (i in sheets){
+      data[[i]] <- readxl::read_xlsx(WorkbookPath, sheet=i) #bring the sheets into R as list elements
+    }
+      
     Workbook <- list()
     for (i in unique(TS$Workbook$`Location identifier`)){
       fetch <- subset(TS$Workbook, `Location identifier` %in% i)
       for (j in unique(fetch$`TS name`)){
         tryCatch( { 
-          Workbook[[paste0(i,"_",j)]] <- na.omit(rawdata)
+          line <- subset(fetch, `TS name`%in% j) %>% dplyr::mutate_all(as.character) #pull out a single line from the metadata
+          dat <- data[[paste0(i," ",j)]] #Pull the data to a new list, if it exists
+          colnames(dat) <- c("time", "vaue") #standardize column names
+          Workbook[[paste0(i,"_",j)]] <- dat #make the new Workbook/list
         },
-        error = function(e) {paste0("The time-series ", j, "for location ", i, "could not be found or could not be processed. Check the exact naming of the location and time-series.")})
+        error = function(e) {paste0("The time-series ", j, "for location ", i, "could not be found in the specified Excel workbook or could not be processed. Check the exact naming of the location and time-series.")})
       }
     }
   } #End of Workbook if loop
@@ -261,13 +268,33 @@ tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin
   #####WSC fetch#####
   if("WSC" %in% sources == TRUE){
     WSC <- list()
+    tidyhydat::download_hydat() #download the latest and greatest hydat database
+    
     for (i in unique(TS$WSC$`Location identifier`)){
       fetch <- subset(TS$WSC, `Location identifier` %in% i)
       for (j in unique(fetch$`TS name`)){
-        tryCatch( { 
-          WSC[[paste0(i,"_",j)]] <- na.omit(rawdata)
+        tryCatch( {
+          line <- subset(fetch, `TS name`%in% j) %>% dplyr::mutate_all(as.character) #pull out a single line from the metadata
+          if (j == "Level"){ #Bit below determines if start and end dates are specified, if not defaults to all dates
+            if(is.na(line$`Start date`)==TRUE & is.na(line$`End date`)==TRUE){
+              dat <- tidyhydat::hy_daily_levels(station_number=i)}
+            if(is.na(line$`Start date`)==FALSE & is.na(line$`End date`)==TRUE){
+              dat <- tidyhydat::hy_daily_levels(station_number=i, start_date=line$`Start date`)}
+            if(is.na(line$`Start date`)==FALSE & is.na(line$`End date`)==FALSE){
+              dat <- tidyhydat::hy_daily_levels(station_number=i, start_date=line$`Start date`, end_date=line$`End date`)}
+          }
+          if (j == "Flow") { #Bit below determines if start and end dates are specified, if not defaults to all dates
+            if(is.na(line$`Start date`)==TRUE & is.na(line$`End date`)==TRUE){
+              dat <- tidyhydat::hy_daily_flows(station_number=i)}
+            if(is.na(line$`Start date`)==FALSE & is.na(line$`End date`)==TRUE){
+              dat <- tidyhydat::hy_daily_flows(station_number=i, start_date=line$`Start date`)}
+            if(is.na(line$`Start date`)==FALSE & is.na(line$`End date`)==FALSE){
+              dat <- tidyhydat::hy_daily_flows(station_number=i, start_date=line$`Start date`, end_date=line$`End date`)}
+          }
+          
+          WSC[[paste0(i,"_",j)]] <- dat
         },
-        error = function(e) {paste0("The time-series ", j, "for location ", i, "could not be found or could not be processed. Check the exact naming of the location and time-series.")})
+        error = function(e) {paste0("The time-series ", j, "for location ", i, "could not be found in the Water Survey of Canada Hydat database or could not be processed. Check the exact naming of the location and time-series.")})
       }
     }
   } #End of WSC if loop
@@ -279,10 +306,18 @@ tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin
     for (i in unique(TS$ECCC$`Location identifier`)){
       fetch <- subset(TS$ECCC, `Location identifier` %in% i)
       for (j in unique(fetch$`TS name`)){
-        tryCatch( { 
-          ECCC[[paste0(i,"_",j)]] <- na.omit(rawdata)
+        tryCatch( {
+          line <- subset(line, `TS name`%in% j) %>% dplyr::mutate_all(as.character) #pull out a single line from the metadata
+          #if date is not specified, default to 1900 and to Sys.Date() to capture all
+          if (is.na(line$`Start date`)==TRUE){
+            line$`Start date` <- "19000101"}
+          if (is.na(line$`End date`)==TRUE){
+            line$`End date` <- gsub("-", "", Sys.Date())}
+         dat <-  read.csv(paste0("https://aquatic.pyr.ec.gc.ca/webdataonlinenational/en/Measurements/LastDataResultsDownloadCSV/Sites/", i ,"/Projects/PYLTM/Regions/0/vars/", j, "/from/", line$`Start date`,"/to/", line$`End date`, "/utcToLocal/0/page/1?"))
+         
+            ECCC[[paste0(i,"_",j)]] <- dat
         },
-        error = function(e) {paste0("The time-series ", j, "for location ", i, "could not be found or could not be processed. Check the exact naming of the location and time-series.")})
+        error = function(e) {paste0("The time-series ", j, "for location ", i, "could not be found at https://aquatic.pyr.ec.gc.ca/webdataonlinenational/en/ or could not be processed. Check the exact naming of the location and time-series, and that it does indeed exist.")})
       }
     }
   } #End of ECCC if loop
