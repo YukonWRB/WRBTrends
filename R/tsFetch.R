@@ -2,7 +2,7 @@
 #' 
 #' This script takes the data.table output  from the stationMeta function (truncated if you desire fewer stations) and fetches time-series information for the stations contained in the "Site name", "Location identifier" columns present in the Excel workbook fed to stationMeta. The Data location column informs where this script looks for data, and entries there must correspond exactly to one of EQWin, Aquarius, Snow Survey Access, Workbook, WSC, or ECCC.
 #' 
-#' BE AWARE that this function may take a long time to execute, perform work on with lots of memory and a good internet connection!
+#' BE AWARE that this function may take a long time to execute and might be RAM intensive, perform work on a computer with lots of memory and a good internet connection!
 #' 
 #' If you are fetching information from the EQWin or Snow Survey Access databases you MUST have access to the X drive on your machine. Aquarius, WSC, and ECCC data can be fetched from anywhere with an internet connection.
 #' 
@@ -163,7 +163,6 @@ tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin
         dat <- dat[order(dat$SAMPLE_DATE),]
         trueStart <- dat$SAMPLE_DATE[1]
         trueEnd <- dat$SAMPLE_DATE[nrow(dat)]
-        
         #Fix the Start date/End date
         if (is.na(line$`Start date`)==TRUE){ #if not specified, default to full range
           line$`Start date` <- trueStart}
@@ -177,10 +176,8 @@ tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin
           if (line$`End date` > trueEnd){
             line$`End date` <- trueEnd} #if the specified end is after the real end
         }
-        
         # Truncate according to set dates, if needed
         dat <- dat[which(dat$SAMPLE_DATE >= line$`Start date`& dat$SAMPLE_DATE <= line$`End date`),]
-        
         # Order and make a list element for i,j
         SnowSurvey[[paste0(i,"_",j)]] <- dat %>% data.table::setorder(cols="SAMPLE_DATE")
         
