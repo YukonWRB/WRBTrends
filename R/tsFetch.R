@@ -17,7 +17,7 @@
 #' @param TS The data.table output of WRBTrends::stationMeta, containing at minimum the default columns specified by that function.
 #' @param sources The list of sources you wish to download data for. "all" means all the sources listed in the "Data location" column of the input data.table. Can also specify from "Aquarius", "EQWin", "Snow Survey", "ECCC", or "Workbook" if you want to exclude any sources. If specifying "Workbook" all time-series must be in individual workbook tabs with columns "datetime" and "value".
 #' @param AQlogin The login parameters for Aquarius in format c("username", "password"). Leave NULL if you are not fetching from Aquarius, in which case you should either ensure it is not specified in the input data.table or is excluded under the source parameter.
-#' @param HYlogin The login parameters for HYDAT in format c("username", "password"). Leave NULL if you are not fetching from Aquarius, in which case you should either ensure it is not specified in the input data.table or is excluded under the source parameter.
+#' @param HYlogin Currently not used. The login parameters for tidyhydat.ws in format c("username", "password").
 #' @param WorkbookPath The exact path to the Excel workbook containing time-series information that you wish to analyze, if applicable. Each tab in the workbook (from 1 to n) should contain a single time-series, named as   Location identifier TS name. Location identifier and TS name must EXACTLY match the entries in the Excel metadata workbook, separated by a space.
 #' @param SnowSurveyPath The exact path to the Snow Survey Access database. If specifying an Access database see the note below.
 #' @param EQWinPath The exact path to the EQWin access database. If specifying an Access database see the note below.
@@ -26,7 +26,6 @@
 #' 
 #' @import data.table
 #' @export
-#' @examples
 
 tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin=NULL, WorkbookPath=NULL, SnowSurveyPath="X:/Snow/DB/SnowDB.mdb", EQWinPath="X:/EQWin/WR/DB/Water Resources.mdb"){
   
@@ -186,6 +185,7 @@ tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin
         SnowSurvey[[paste0(i,"_",j)]] <- dat %>% data.table::setorder(cols="SAMPLE_DATE")
         
       },  error = function(e) {paste0("The time-series ", j," for location ", i, " could not be found in the Snow Survey database or could not be processed. Check the exact naming of the location and time-series.")})
+      }
     }
   } #End of Snow Survey if loop
   
@@ -240,7 +240,6 @@ tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin
     }
   } #End of EQWin if loop
 
-    
   #####Workbook fetch#####
   WorkbookPath <- "C:/Users/gtdelapl/Desktop/Book1.xlsx"
   if("Workbook" %in% sources == TRUE){
@@ -299,12 +298,12 @@ tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin
     }
   } #End of WSC if loop
   
-  
   #####ECCC fetch#####
   if("ECCC" %in% sources == TRUE){
     ECCC <- list()
     for (i in unique(TS$ECCC$`Location identifier`)){
       fetch <- subset(TS$ECCC, `Location identifier` %in% i)
+      
       for (j in unique(fetch$`TS name`)){
         tryCatch( {
           line <- subset(line, `TS name`%in% j) %>% dplyr::mutate_all(as.character) #pull out a single line from the metadata
@@ -313,15 +312,22 @@ tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), HYlogin
             line$`Start date` <- "19000101"}
           if (is.na(line$`End date`)==TRUE){
             line$`End date` <- gsub("-", "", Sys.Date())}
-         dat <-  read.csv(paste0("https://aquatic.pyr.ec.gc.ca/webdataonlinenational/en/Measurements/LastDataResultsDownloadCSV/Sites/", i ,"/Projects/PYLTM/Regions/0/vars/", j, "/from/", line$`Start date`,"/to/", line$`End date`, "/utcToLocal/0/page/1?"))
-         
-            ECCC[[paste0(i,"_",j)]] <- dat
+          #Get the data!
+           dat <-  read.csv(paste0("https://aquatic.pyr.ec.gc.ca/webdataonlinenational/en/Measurements/LastDataResultsDownloadCSV/Sites/", i ,"/Projects/PYLTM/Regions/0/vars/", j, "/from/", line$`Start.date`,"/to/", line$`End.date`, "/utcToLocal/0/page/1?"))
+           #Combine the results from different labs (from 1 to n labs) and make some neat date and time columns
+           data("ECCC_param_codes") #load the list of parameter codes
+           param <- dplyr::pull(ECCC_param_codes[ECCC_param_codes$`Parameter code` %in% j,2]) #gets the name of the parameter to name the column in dat
+           dat <- tidyr::unite(dat, col=!!as.name(param), seq(from=4, to=(ncol(dat)-3), by=4), na.rm=TRUE, remove=TRUE)
+           dat <- tidyr::unite(dat, col="Status", seq(from=5, to=(ncol(dat)-2), by=3), na.rm=TRUE, remove=TRUE, sep="")
+           dat <- tidyr::unite(dat, col="Units", seq(from=6, to=(ncol(dat)-1), by=2), na.rm=TRUE, remove=TRUE, sep="")
+           dat <- tidyr::unite(dat, col="Value modifier", seq(from=7, to=ncol(dat), by=1), na.rm=TRUE, remove=TRUE, sep="")
+           dat$Date <- substr(dat[,1], start=1, stop=10)
+           dat$Time <- substr(dat[,1], start=12, stop=19)
+
+           ECCC[[paste0(i,"_",j)]] <- dat #Write the data to file
         },
         error = function(e) {paste0("The time-series ", j, "for location ", i, "could not be found at https://aquatic.pyr.ec.gc.ca/webdataonlinenational/en/ or could not be processed. Check the exact naming of the location and time-series, and that it does indeed exist.")})
       }
     }
-  } #End of ECCC if loop
-  
-  
-  
+  } #End of ECCC loop
 } # End of function

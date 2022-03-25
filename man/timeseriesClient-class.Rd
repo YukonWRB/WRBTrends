@@ -10,7 +10,18 @@
 
 \item{username}{The AQTS credentials username}
 
-\item{password}{The AQTS credentials password}
+\item{password}{The AQTS credentials password
+Disconnects immediately from an AQTS server
+Auto-configures the proxy to route all requests through Fiddler
+
+This method configures the R proxy to route everything through Fiddler if it is running
+
+Sys.setenv(http_proxy="http://localhost:8888") # Enables Fiddler capturing of traffic
+Sys.setenv(http_proxy="") # Disables Fiddler proxying
+Determines if a target version string is strictly less than a source version
+
+This method takes dotted version strings and compares them by numerical components.
+It safely avoids the errors string comparison, which incorrectly says "3.10.510" > "17.2.123".}
 
 \item{targetVersion}{Target version string}
 
@@ -85,17 +96,25 @@ Gets the unique ID of a time-series from its identifier string
 If the input string is already a unique ID, the input value is simply returned unmodified.
 
 The unique ID of the time-series
+Gets the location identifier from a time series identifier string
 
 The identifier of the location
+Parse an ISO 8601 timestamp into a POSIXct value
 
 The equivalent POSIXct datetime
+Formats a datetime in ISO 8601 format
 
 The time in YYYY-MM-DDTHH:mm:SS.fffffZ format
 Gets the UTC offset string from a numeric UTC offset hours value
 
 An ISO8601 UTC offset string in +/-HH:MM format
+Gets the location data for a location
+Gets the rating models matching the optional filters
+
+Retrieves the rating models and their applicable curves
 
 A list of rating models and their applicable curves
+Gets output values from a rating model
 
 The output values from the applicable curve of the rating model. An output value of NA is returned if the input is outside the curve.
 Gets field visits
@@ -103,8 +122,19 @@ Gets field visits
 Gets field visits activities
 
 The activities performed at the locations during the requested time range
+Gets Change list for a given time-series
 
 The list of change trasactions
+Converts an item to JSV format, for GET request query parameter values
+
+Converts vectors or named lists to JSV. Everything else is left unmodified.
+
+Query parameters in a GET request need to be in JSV format.
+JSON body parameters in POST/PUT/DELETE requests do not need JSV formatting (they are, JSON)
+
+https://github.com/ServiceStack/ServiceStack.Text/wiki/JSV-Format
+
+Fetch all requested time-series descriptions matching the filter
 
 All the time-series descriptions matching the filters
 Gets time-series points for multiple time-series
@@ -114,6 +144,10 @@ Point values from secondary time-series will be time-aligned via interpolation
 rules to the timestamps from the first time-series.
 
 The JSON object from the /GetTimeSeriesData response
+Get corrected data for a time-series
+
+The getTimeSeriesData() method is usually a better choice, since it can pull corrected data from multiple time-series.
+But when you need to look at the metadata of a time-series, this method is required.
 
 The corrected data and metadata for the time-series
 Uploads a file to a location as an external report
@@ -139,79 +173,3 @@ A single dataframe containing all the batched responses
 Once authenticated, all subsequent requests to the AQTS server will reuse the authenticated session
 }
 
-\examples{
-connect("localhost", "admin", "admin") # When running R on your AQTS app server
-connect("myserver", "me", "mypassword") # Connect over the network
-connect("https://myserver", "user", "letmein") # Connect to an AQTS server with HTTPS enabled
-Disconnects immediately from an AQTS server
-Auto-configures the proxy to route all requests through Fiddler
-
-This method configures the R proxy to route everything through Fiddler if it is running
-
-Sys.setenv(http_proxy="http://localhost:8888") # Enables Fiddler capturing of traffic
-Sys.setenv(http_proxy="") # Disables Fiddler proxying
-Determines if a target version string is strictly less than a source version
-
-This method takes dotted version strings and compares them by numerical components.
-It safely avoids the errors string comparison, which incorrectly says "3.10.510" > "17.2.123".
-getTimeSeriesUniqueId("Stage.Working@MyLocation") # cdf184928c8249abb872f852f0fa7d01
-Gets the location identifier from a time series identifier string
-
-getLocationIdentifier("Stage.Working@MyLocation") # MyLocation
-Parse an ISO 8601 timestamp into a POSIXct value
-
-parseIso8601("2015-04-01T00:00:00Z") # April Fool's day, 2015 UTC
-parseIso8601("2015-04-01T00:00:00-08:00") # April Fool's day, 2015, Pacific Standard Time
-
-times = sapply(json$Points$Timestamp, timeseries$parse8601) # Convert all JSON timestamp strings into POSIXct format
-Formats a datetime in ISO 8601 format
-
-getUtcOffsetText(-8) # "-08:00"
-getUtcOffsetText(2.5) # "+02:30"
-Gets the location data for a location
-Gets the rating models matching the optional filters
-
-Retrieves the rating models and their applicable curves
-
-# Get all the ratings in effect during October 2016 at a location
-ratings = timeseries$getRatings("A015001", "2016-10-01", "2016-10-31")
-ratings$Identifier
-ratings$Curves$Type
-Gets output values from a rating model
-
-Gets Change list for a given time-series
-
-Converts an item to JSV format, for GET request query parameter values
-
-Converts vectors or named lists to JSV. Everything else is left unmodified.
-
-Query parameters in a GET request need to be in JSV format.
-JSON body parameters in POST/PUT/DELETE requests do not need JSV formatting (they are, JSON)
-
-https://github.com/ServiceStack/ServiceStack.Text/wiki/JSV-Format
-
-Fetch all requested time-series descriptions matching the filter
-
-## Get the discharge and stage timeseries for 2012
-json = timeseries$getTimeSeriesData(c("Discharge.Working@Location","Stage.Working@Location"),
-                                    queryFrom = "2012-01-01T00:00:00Z",
-                                    queryTo   = "2013-01-01T00:00:00Z")
-
-## Plot stage vs dicharge
-plot(json$Points$NumericValue1, json$Points$NumericValue2)
-
-## Plot stage vs dicharge, with log scale, and some labeled axis
-plot(json$Points$NumericValue1, json$Points$NumericValue2, log = "xy",
-     xlab = json$TimeSeries$Identifier[1],
-     ylab = json$TimeSeries$Identifier[2])
-Get corrected data for a time-series
-
-The getTimeSeriesData() method is usually a better choice, since it can pull corrected data from multiple time-series.
-But when you need to look at the metadata of a time-series, this method is required.
-
-# Request info for 3 locations.
-# Single-request URL is GET /Publish/v2/GetLocationData?LocationIdentifer=loc1
-# Operation name is "LocationDataServiceRequest"
-requests = c(list(LocationIdentifier="Loc1"), list(LocationIdentifier="Loc3"), list(LocationIdentifier="Loc3"))
-responses = timeseries$sendBatchRequests(timeseries$publishUri,"LocationDataServiceRequest", requests)
-}

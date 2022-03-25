@@ -15,7 +15,7 @@
 #' @examples
 #' 
 
-stationMeta <- function(path, colList = c("Site name", "Location identifier", "TS name", "Start year", "End year","Data location", "Latitude", "Longitude", "GRADE length", "GRADE gaps", "GRADE disturbance", "GRADE data quality", "GRADE final score"), gradeColumn="GRADE final score", gradeRange=NULL, product="data.table", ignore.tabs=c("README", "Filter and Grade all sites")){
+stationMeta <- function(path, colList = c("Site name", "Location identifier", "TS name", "Start year", "End year","Data location", "Latitude", "Longitude", "GRADE length", "GRADE gaps", "GRADE disturbance", "GRADE data quality", "GRADE final score"), gradeColumn="GRADE final score", gradeRange=NULL, product="data.table", ignore.tabs=c("README", "Parameter codes for WQN", "Filter and Grade all sites")){
   
   #bring the sheets into R
   sheets <- readxl::excel_sheets(path) #get the names of each sheet in the workbook

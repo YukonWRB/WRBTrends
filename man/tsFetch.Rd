@@ -21,9 +21,9 @@ tsFetch(
 
 \item{AQlogin}{The login parameters for Aquarius in format c("username", "password"). Leave NULL if you are not fetching from Aquarius, in which case you should either ensure it is not specified in the input data.table or is excluded under the source parameter.}
 
-\item{HYlogin}{The login parameters for HYDAT in format c("username", "password"). Leave NULL if you are not fetching from Aquarius, in which case you should either ensure it is not specified in the input data.table or is excluded under the source parameter.}
+\item{HYlogin}{Currently not used. The login parameters for tidyhydat.ws in format c("username", "password").}
 
-\item{WorkbookPath}{The exact path to the Excel workbook containing time-series information that you wish to analyze, if applicable. Each tab (from 1 to n) should contain a single time-series.}
+\item{WorkbookPath}{The exact path to the Excel workbook containing time-series information that you wish to analyze, if applicable. Each tab in the workbook (from 1 to n) should contain a single time-series, named as   Location identifier TS name. Location identifier and TS name must EXACTLY match the entries in the Excel metadata workbook, separated by a space.}
 
 \item{SnowSurveyPath}{The exact path to the Snow Survey Access database. If specifying an Access database see the note below.}
 
@@ -33,15 +33,18 @@ tsFetch(
 A list containing one element (tibble) per time-series, with processing performed to standardize the time-series to one common format. Designed to act as input to the WRBTrends:: ???? and ???? functions.
 }
 \description{
-This script takes the data.table output  from the stationMeta function (truncated if you desire fewer stations) and fetches time-series information for the stations contained in the "Site name", "Location identifier" columns.
-If you are fetching information from the EQWin or Snow Survey Access databases you MUST have access to the X drive on your machine. Aquarius data can be fetched from anywhere with an internet connection.
+This script takes the data.table output  from the stationMeta function (truncated if you desire fewer stations) and fetches time-series information for the stations contained in the "Site name", "Location identifier" columns present in the Excel workbook fed to stationMeta. The Data location column informs where this script looks for data, and entries there must correspond exactly to one of EQWin, Aquarius, Snow Survey Access, Workbook, WSC, or ECCC.
 }
 \details{
-BE AWARE that this function may take a long time to execute, perform work on a multi-core machine with lots of memory and a good internet connection!
+BE AWARE that this function may take a long time to execute, perform work on with lots of memory and a good internet connection!
+
+If you are fetching information from the EQWin or Snow Survey Access databases you MUST have access to the X drive on your machine. Aquarius, WSC, and ECCC data can be fetched from anywhere with an internet connection.
 
 If you are using Access databases you will need to download and install the Microsoft Access Database Engine Redistributable on your machine. As of spring 2022 the latest version is here: https://www.microsoft.com/en-us/download/details.aspx?id=54920.
 
 This will work fine if you have R and Access in 32 OR 64 bit versions. If that's not the case then the best way forward is to upgrade your R and Office installations to 64 bit versions. If that's not possible (you have 64 bit Windows and R but 32 bit Access for example) you will still need the 64-bit version of the redistributable. Windows won't easily let you do it, and this method is a hack, but if you insist: download and save the 64-bit version somewhere. Then, install it from the command prompt with warnings suppressed. Open the command prompt, then type the path to the .exe followed by quiet like this: C:\Users\gtdelapl>Downloads\accessdatabaseengine_X64.exe/quiet. WARNING: this might damage your Office installation. If it did, you can try uninstalling the redistributable from Add/Remove Programs, if that fails just remove the Office install and start again with the proper 64-bit version.
+
+If you are specifying an Excel workbook with time-series, each tab in the workbook must contain a single time-series. The tab must be named as Location identifier TS name, with Location identifier and TS name EXACTLY matching the relevant entries in the Excel metadata workbook, separated by a space. The first column of each tab must contain a time/date information, the second tab must contain the corresponding value. The header must be on line 1 (column names are not important) with no empty lines.
 
 The Snow Survey processing includes applying a correction factor to Hyland and Twin Creeks stations to harmonize the new stations with the old stations.
 }

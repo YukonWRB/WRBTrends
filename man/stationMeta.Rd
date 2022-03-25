@@ -12,7 +12,7 @@ stationMeta(
   gradeColumn = "GRADE final score",
   gradeRange = NULL,
   product = "data.table",
-  ignore.tabs = c("README", "Filter and Grade all sites")
+  ignore.tabs = c("README", "Parameter codes for WQN", "Filter and Grade all sites")
 )
 }
 \arguments{
