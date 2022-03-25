@@ -1,6 +1,6 @@
 Package: WRBTrends
 Title: WRB's trend functions
-Version: 1.0.3
+Version: 2.0.0
 Authors@R: 
     person("Ghislain", "de Laplante", , "ghislaindel@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-5093-9185"))
