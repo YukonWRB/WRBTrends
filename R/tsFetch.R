@@ -16,7 +16,7 @@
 #'
 #' @param TS The data.table output of WRBTrends::stationMeta, containing at minimum the default columns specified by that function.
 #' @param sources The list of sources you wish to download data for. "all" means all the sources listed in the "Data location" column of the input data.table. Can also specify from "Aquarius GW", "Aquarius MET", "Aquarius HYDRO", "EQWin", "Snow Survey Access", "ECCC", or "Workbook" if you want to exclude any sources. If specifying "Workbook" all time-series must be in individual workbook tabs with columns "datetime" and "value".
-#' @param AQlogin The login parameters for Aquarius in format c("username", "password"). Leave NULL if you are not fetching from Aquarius, in which case you should either ensure it is not specified in the input data.table or is excluded under the source parameter.
+#' @param AQlogin The login parameters for Aquarius. Defaults to your .Renviron profile, in which the username and password should appear in key pairs of AQUSER="username" and AQPASS="password". You can also specify credentials in format c("username", "password"). Leave NULL if you are not fetching from Aquarius, in which case you should either ensure it is not specified in the input data.table or is excluded under the source parameter.
 #' @param HYlogin Currently not used. The login parameters for tidyhydat.ws in format c("username", "password").
 #' @param WorkbookPath The exact path to the Excel workbook containing time-series information that you wish to analyze, if applicable. Each tab in the workbook (from 1 to n) should contain a single time-series, named as   Location identifier TS name. Location identifier and TS name must EXACTLY match the entries in the Excel metadata workbook, separated by a space.
 #' @param SnowSurveyPath The exact path to the Snow Survey Access database. If specifying an Access database see the note below.
@@ -27,7 +27,7 @@
 #' @import data.table
 #' @export
 
-tsFetch <- function(TS, sources="all", AQlogin=c("gtdelapl","WQ*2021!"), SnowSurveyPath="X:/Snow/DB/SnowDB.mdb", EQWinPath="X:/EQWin/WR/DB/Water Resources.mdb", HYlogin=NULL, WorkbookPath=NULL){
+tsFetch <- function(TS, sources="all", AQlogin=Sys.getenv(c("AQUSER", "AQPASS"), names=FALSE), SnowSurveyPath="X:/Snow/DB/SnowDB.mdb", EQWinPath="X:/EQWin/WR/DB/Water Resources.mdb", HYlogin=NULL, WorkbookPath=NULL){
   
   #Find all the data sources
   if (sources=="all"){
