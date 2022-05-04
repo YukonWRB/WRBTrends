@@ -1,8 +1,0 @@
-1. Download the Microsoft Access Database Engine Redistributable and install it:
-	https://www.microsoft.com/en-us/download/details.aspx?id=54920
-Note that there may be a more recent version by the time you look at this note.
-
-2. Install the odbc package (intall.packages("odbc"))
-
-3. Install the DBI package if not already installed (install.packages("DBI"))
-

@@ -6,11 +6,12 @@
 \usage{
 stationMeta(
   path,
-  colList = c("Site name", "Location identifier", "TS name", "Start year", "End year",
+  colList = c("Site name", "Location identifier", "TS name", "Start date", "End date",
     "Data location", "Latitude", "Longitude", "GRADE length", "GRADE gaps",
     "GRADE disturbance", "GRADE data quality", "GRADE final score"),
   gradeColumn = "GRADE final score",
   gradeRange = NULL,
+  Active_or_Inactive = "Y",
   product = "data.table",
   ignore.tabs = c("README", "Parameter codes for WQN", "Filter and Grade all sites")
 )
@@ -23,6 +24,8 @@ stationMeta(
 \item{gradeColumn}{The column containing grade information to use as a filter with gradeRange.}
 
 \item{gradeRange}{NULL or a numeric vector of length 2, as in c(4,6). Default NULL returns all regardless of grade, specifying a range returns only the time-series with a GRADE final score value within the (inclusive) range.}
+
+\item{Active_or_Inactive}{input "Y" if you wish to retain only rows with Y in the Active (Y/N) column, "N" for the alternative case}
 
 \item{product}{Specify "data.table"  or "list", depending on if you want a single data.frame or a list of tibbles. The single data.frame will be formatted for input to the tsFetch and other package functions for trend analysis, while the list of tibbles will contain a list element for each tab in the Excel workbook. In either case the tabs specified in ignore.tabs will not be included.}
 

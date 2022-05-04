@@ -5,7 +5,7 @@ Authors@R:
     person("Ghislain", "de Laplante", , "ghislaindel@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-5093-9185"))
 Description: A collection of functions developped by the Yukon Government Water Resources Branch used to analyze and render trends information for various time-series. Also contains functions designed to work with station/time-series metadata held in an Excel workbook and download/compille time-series in several lists of tibbles.
-Imports: dplyr, trend, Kendall, rkt, lubridate, purrr, broom, magrittr, plyr, tibble, data.table, odbc, DBI, lubridate, readxl, tidyhydat
+Imports: dplyr, trend, Kendall, rkt, lubridate, purrr, broom, magrittr, plyr, tibble, data.table, odbc, DBI, lubridate, readxl, tidyhydat, methods, rlist, tidyr
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)

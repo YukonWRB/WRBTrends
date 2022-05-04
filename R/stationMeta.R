@@ -13,7 +13,6 @@
 #' @return A data.table ready for input to the tsFetch function (can be used for other purposes), or a list of tibbles. Both outputs contain the same information but in a different form.
 #' @export
 #'
-#' @examples
 #' 
 #TODO: include the new active y/n tab and maybe an "analyze" tab?
 stationMeta <- function(path, colList = c("Site name", "Location identifier", "TS name", "Start date", "End date","Data location", "Latitude", "Longitude", "GRADE length", "GRADE gaps", "GRADE disturbance", "GRADE data quality", "GRADE final score"), gradeColumn="GRADE final score", gradeRange=NULL, Active_or_Inactive="Y", product="data.table", ignore.tabs=c("README", "Parameter codes for WQN", "Filter and Grade all sites")){
